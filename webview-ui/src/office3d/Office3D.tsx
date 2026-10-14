@@ -45,6 +45,13 @@ export default function Office3D(props: Office3DProps) {
         // Same toggle the 2D canvas makes before it reports a click.
         const { officeState: os, onClick } = latest.current;
         os.dismissBubble(id);
+        // The pixel view finishes a dismissed fade in its game loop, which does
+        // not run here. Without this a looked-at desk would stay done forever.
+        const ch = os.characters.get(id);
+        if (ch?.bubbleType === 'waiting') {
+          ch.bubbleType = null;
+          ch.bubbleTimer = 0;
+        }
         const deselect = os.selectedAgentId === id;
         os.selectedAgentId = deselect ? null : id;
         os.cameraFollowId = deselect ? null : id;
