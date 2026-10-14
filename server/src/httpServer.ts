@@ -94,7 +94,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
 
   // ── Routes ──────────────────────────────────────────────────
 
-  registerAccessAndTerminalGate(app, options);
+  registerAccessGate(app, options);
   registerHealthRoute(app);
   registerHookRoute(app, options);
   registerWebSocketRoute(app, options);
@@ -128,6 +128,7 @@ function registerHookRoute(app: FastifyInstance, options: HttpServerOptions): vo
   }>(
     `${HOOK_API_PREFIX}/:providerId`,
     {
+      config: { accessExempt: true },
       preHandler: bearerAuth(options.token),
       schema: {
         params: {
@@ -340,11 +341,6 @@ function headerValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function requestPath(url: string): string {
-  const query = url.indexOf('?');
-  return query === -1 ? url : url.slice(0, query);
-}
-
 function logEmail(email: string | null | undefined): string {
   const value = email && email.length > 0 ? email : '-';
   return value.replace(/[\r\n]/g, '').slice(0, 200);
@@ -361,30 +357,35 @@ function toBuffer(data: unknown): Buffer {
 }
 
 /**
- * Access JWT, when configured, runs before the WebSocket upgrade. Hook posts
- * keep their bearer check and skip the JWT. /ws/term stays closed unless
- * Access is configured or the insecure local flag is on.
+ * Access JWT, when configured, runs before the WebSocket upgrade on every
+ * route. Only the hook post route opts out (it keeps its bearer check). The
+ * opt-out is read from the matched route, never from the raw URL, so an
+ * encoded or reshaped path cannot reach a route while skipping its gate.
  */
-function registerAccessAndTerminalGate(app: FastifyInstance, options: HttpServerOptions): void {
-  const terminalEnabled = options.insecureLocalTerminal === true || options.access !== undefined;
+function registerAccessGate(app: FastifyInstance, options: HttpServerOptions): void {
+  const { access } = options;
+  if (!access) return;
   app.addHook('onRequest', async (request, reply) => {
-    const pathOnly = requestPath(request.url);
-    const hookPost =
-      request.method === 'POST' &&
-      (pathOnly === HOOK_API_PREFIX || pathOnly.startsWith(`${HOOK_API_PREFIX}/`));
-    if (!hookPost && options.access) {
-      const result = await options.access.verify(
-        headerValue(request.headers['cf-access-jwt-assertion']),
-      );
-      if (!result.ok) {
-        await reply.code(403).send('forbidden');
-        return;
-      }
-      accessEmails.set(request, result.email);
+    const config = request.routeOptions.config as { accessExempt?: boolean } | undefined;
+    if (config?.accessExempt === true) return;
+    const result = await access.verify(headerValue(request.headers['cf-access-jwt-assertion']));
+    if (!result.ok) {
+      await reply.code(403).send('forbidden');
+      return;
     }
-    if (pathOnly !== '/ws/term') return;
-    // Typing into a pane is privileged: same-origin, and with Access off the
-    // server token too, so a page on another site cannot drive a terminal.
+    accessEmails.set(request, result.email);
+  });
+}
+
+/**
+ * /ws/term stays closed unless Access is configured or the insecure local
+ * flag is on. Typing into a pane is privileged: same-origin always, and with
+ * Access off the server token too, so a page on another site cannot drive a
+ * terminal. Runs as a route hook, so it guards every path the router maps here.
+ */
+function terminalGate(options: HttpServerOptions) {
+  const terminalEnabled = options.insecureLocalTerminal === true || options.access !== undefined;
+  return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     if (
       !terminalEnabled ||
       !isAllowedWebSocketOrigin(request.headers.origin, request.headers.host) ||
@@ -393,28 +394,25 @@ function registerAccessAndTerminalGate(app: FastifyInstance, options: HttpServer
       await reply.code(403).send('forbidden');
       return;
     }
-    let agentId = '';
-    try {
-      agentId = new URL(request.url, 'http://localhost').searchParams.get('agentId') ?? '';
-    } catch {
-      agentId = '';
-    }
-    if (!/^\d+$/.test(agentId)) {
+    if (terminalAgentId(request.url) === null) {
       await reply.code(400).send('bad agent');
     }
-  });
+  };
+}
+
+function terminalAgentId(url: string): number | null {
+  try {
+    const raw = new URL(url, 'http://localhost').searchParams.get('agentId') ?? '';
+    return /^\d+$/.test(raw) ? Number(raw) : null;
+  } catch {
+    return null;
+  }
 }
 
 function registerTerminalRoute(app: FastifyInstance, options: HttpServerOptions): void {
-  app.get('/ws/term', { websocket: true }, (socket, request) => {
-    let agentId = Number.NaN;
-    try {
-      const raw = new URL(request.url, 'http://localhost').searchParams.get('agentId') ?? '';
-      agentId = /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
-    } catch {
-      agentId = Number.NaN;
-    }
-    const agent = Number.isInteger(agentId) ? options.store.get(agentId) : undefined;
+  app.get('/ws/term', { websocket: true, onRequest: terminalGate(options) }, (socket, request) => {
+    const agentId = terminalAgentId(request.url);
+    const agent = agentId === null ? undefined : options.store.get(agentId);
     const location = agent ? options.sessionRegistry?.get(agent.sessionId)?.tmux : undefined;
     if (!agent || !location) {
       safeSend(socket, { type: 'error', message: 'no terminal for this agent' });

@@ -53,6 +53,8 @@ export const CLAUDE_SESSION_POLL_INTERVAL_MS = 2_000;
 export const TERM_SIZE_POLL_INTERVAL_MS = 2_000;
 /** Cloudflare Access signing keys are cached for this long, then refetched. */
 export const ACCESS_JWKS_CACHE_MS = 10 * 60 * 1000;
+/** At most one unknown-kid refetch of the Access signing keys per this window. */
+export const ACCESS_JWKS_MIN_REFETCH_MS = 30_000;
 /** Clock skew tolerated on Access JWT `exp` / `nbf` (seconds). */
 export const ACCESS_JWT_CLOCK_SKEW_SEC = 60;
 

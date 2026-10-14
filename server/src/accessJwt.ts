@@ -1,6 +1,10 @@
 import { createPublicKey, createVerify, type KeyObject, webcrypto } from 'node:crypto';
 
-import { ACCESS_JWKS_CACHE_MS, ACCESS_JWT_CLOCK_SKEW_SEC } from './constants.js';
+import {
+  ACCESS_JWKS_CACHE_MS,
+  ACCESS_JWKS_MIN_REFETCH_MS,
+  ACCESS_JWT_CLOCK_SKEW_SEC,
+} from './constants.js';
 
 export interface AccessJwtConfig {
   /** Team domain, with or without a leading `https://`. */
@@ -134,12 +138,28 @@ export function createAccessVerifier(
   const url = accessCertsUrl(config.teamDomain);
   let keys = new Map<string, KeyObject>();
   let fetchedAt = 0;
+  let forcedAt = Number.NEGATIVE_INFINITY;
+  let inflight: Promise<void> | null = null;
 
   async function load(force: boolean): Promise<void> {
     const now = Date.now();
     if (!force && keys.size > 0 && now - fetchedAt < ACCESS_JWKS_CACHE_MS) return;
-    keys = keysFromJwks(await fetchJwks(url));
-    fetchedAt = Date.now();
+    if (inflight) return inflight;
+    // The kid comes from the request, so a stream of made-up kids must not
+    // turn into a stream of fetches to the team domain.
+    if (force) {
+      if (now - forcedAt < ACCESS_JWKS_MIN_REFETCH_MS) return;
+      forcedAt = now;
+    }
+    inflight = fetchJwks(url)
+      .then((doc) => {
+        keys = keysFromJwks(doc);
+        fetchedAt = Date.now();
+      })
+      .finally(() => {
+        inflight = null;
+      });
+    return inflight;
   }
 
   return {

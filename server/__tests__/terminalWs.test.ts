@@ -114,6 +114,15 @@ describe('/ws/term gate', () => {
       headers: { origin: 'https://evil.example' },
     });
     expect(crossSite.status).toBe(403);
+    // The router decodes %74 to `t`; the gate must still run on that path.
+    const encoded = `http://127.0.0.1:${handle.port}/ws/%74erm?agentId=1&token=wrong`;
+    expect((await fetch(encoded)).status).toBe(403);
+  });
+
+  it('keeps an encoded /ws/term path closed when Access is unset and the flag is off', async () => {
+    const handle = await listen({});
+    const encoded = `http://127.0.0.1:${handle.port}/ws/%74erm?agentId=1&token=test-token`;
+    expect((await fetch(encoded)).status).toBe(403);
   });
 
   it('returns 403 for any route without a JWT when Access is configured', async () => {
@@ -167,6 +176,9 @@ describe('/ws/term gate', () => {
       body: '{}',
     });
     expect(hookDenied.status).toBe(401);
+
+    // Only the matched hook POST route is exempt, not every URL under the prefix.
+    expect((await fetch(`${base}/api/hooks/claude`)).status).toBe(403);
   });
 });
 

@@ -121,4 +121,17 @@ describe('createAccessVerifier', () => {
     await expect(verifier.verify(token)).resolves.toEqual({ ok: false });
     expect(fetches).toBe(2);
   });
+
+  it('caps unknown-kid refetches so made-up kids do not fan out to Cloudflare', async () => {
+    const { privateKey, jwks } = keyPair();
+    let fetches = 0;
+    const verifier = createAccessVerifier({ teamDomain: TEAM, aud: AUD }, async () => {
+      fetches += 1;
+      return jwks;
+    });
+    const tokens = Array.from({ length: 20 }, (_, i) => sign(privateKey, payload(), `junk-${i}`));
+    await Promise.all(tokens.map((token) => verifier.verify(token)));
+    for (const token of tokens) await verifier.verify(token);
+    expect(fetches).toBe(2);
+  });
 });
