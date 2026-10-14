@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { toMajorMinor } from './changelogData.js';
 import { BottomToolbar } from './components/BottomToolbar.js';
@@ -40,6 +40,12 @@ const editorState = new EditorState();
 // Installed only under the e2e harness so they never patch prototypes or grow
 // unbounded logs in a real user's session.
 if (isE2E) installTestHooks(officeStateRef);
+
+// The browser office is 3D unless ?view=pixel asks for the pixel view. The e2e
+// suite and VS Code keep the pixel view, which the overlays and tests rely on.
+const prefer3D =
+  isBrowserRuntime && !isE2E && new URLSearchParams(window.location.search).get('view') !== 'pixel';
+const Office3D = lazy(() => import('./office3d/Office3D.js'));
 
 function getOfficeState(): OfficeState {
   if (!officeStateRef.current) {
@@ -353,6 +359,8 @@ function App() {
 
   const openTerminal = openTerminalId !== null ? agentTerminals[openTerminalId] : undefined;
   const showTerminal = isBrowserRuntime && openTerminalId !== null && openTerminal?.tmux != null;
+  // The layout editor and the first-run tour are drawn on the pixel office.
+  const show3D = prefer3D && !editor.isEditMode && !intro;
 
   return (
     <div className={showTerminal ? 'office-shell' : 'w-full h-full'}>
@@ -360,34 +368,49 @@ function App() {
         ref={containerRef}
         className={showTerminal ? 'office-stage' : 'w-full h-full relative overflow-hidden'}
       >
-        <OfficeCanvas
-          officeState={officeState}
-          onClick={handleClick}
-          isEditMode={editor.isEditMode}
-          editorState={editorState}
-          onEditorTileAction={editor.handleEditorTileAction}
-          onEditorEraseAction={editor.handleEditorEraseAction}
-          onEditorSelectionChange={editor.handleEditorSelectionChange}
-          onDeleteSelected={editor.handleDeleteSelected}
-          onRotateSelected={editor.handleRotateSelected}
-          onDragMove={editor.handleDragMove}
-          editorTick={editor.editorTick}
-          zoom={editor.zoom}
-          onZoomChange={editor.handleZoomChange}
-          panRef={editor.panRef}
-          showAreas={effectiveShowAreas}
-          activeAreaLabel={activeAreaLabel}
-        />
+        {show3D ? (
+          <Suspense fallback={null}>
+            <Office3D
+              officeState={officeState}
+              agentTerminals={agentTerminals}
+              agentTools={agentTools}
+              onClick={handleClick}
+            />
+          </Suspense>
+        ) : (
+          <OfficeCanvas
+            officeState={officeState}
+            onClick={handleClick}
+            isEditMode={editor.isEditMode}
+            editorState={editorState}
+            onEditorTileAction={editor.handleEditorTileAction}
+            onEditorEraseAction={editor.handleEditorEraseAction}
+            onEditorSelectionChange={editor.handleEditorSelectionChange}
+            onDeleteSelected={editor.handleDeleteSelected}
+            onRotateSelected={editor.handleRotateSelected}
+            onDragMove={editor.handleDragMove}
+            editorTick={editor.editorTick}
+            zoom={editor.zoom}
+            onZoomChange={editor.handleZoomChange}
+            panRef={editor.panRef}
+            showAreas={effectiveShowAreas}
+            activeAreaLabel={activeAreaLabel}
+          />
+        )}
 
         {!isDebugMode ? (
           <>
-            <ZoomControls zoom={editor.zoom} onZoomChange={editor.handleZoomChange} />
+            {!show3D && (
+              <>
+                <ZoomControls zoom={editor.zoom} onZoomChange={editor.handleZoomChange} />
 
-            {/* Vignette overlay */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{ background: 'var(--vignette)' }}
-            />
+                {/* Vignette overlay */}
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ background: 'var(--vignette)' }}
+                />
+              </>
+            )}
 
             {editor.isEditMode && editor.isDirty && (
               <EditActionBar editor={editor} editorState={editorState} />
@@ -452,18 +475,20 @@ function App() {
                 );
               })()}
 
-            <ToolOverlay
-              officeState={officeState}
-              agents={agents}
-              agentTools={agentTools}
-              subagentTools={subagentTools}
-              subagentCharacters={subagentCharacters}
-              containerRef={containerRef}
-              zoom={editor.zoom}
-              panRef={editor.panRef}
-              onCloseAgent={handleCloseAgent}
-              alwaysShowOverlay={alwaysShowOverlay}
-            />
+            {!show3D && (
+              <ToolOverlay
+                officeState={officeState}
+                agents={agents}
+                agentTools={agentTools}
+                subagentTools={subagentTools}
+                subagentCharacters={subagentCharacters}
+                containerRef={containerRef}
+                zoom={editor.zoom}
+                panRef={editor.panRef}
+                onCloseAgent={handleCloseAgent}
+                alwaysShowOverlay={alwaysShowOverlay}
+              />
+            )}
           </>
         ) : (
           <DebugView
