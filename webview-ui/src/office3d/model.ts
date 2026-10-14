@@ -1,4 +1,3 @@
-import type { AgentTerminalMeta } from '../hooks/useExtensionMessages.js';
 import type { Character, ToolActivity } from '../office/types.js';
 
 export type DeskStatus = 'working' | 'needs-permission' | 'waiting-input' | 'done' | 'idle';
@@ -19,6 +18,12 @@ export interface DeskModel {
   helpers: HelperModel[];
 }
 
+/** What the office reads from an AgentTerminalMeta, declared here so tests stay DOM-free. */
+export interface TerminalMeta {
+  name: string | null;
+  tmux: DeskModel['pane'];
+}
+
 export interface RoomModel {
   id: string;
   title: string;
@@ -28,6 +33,14 @@ export interface RoomModel {
 /** tmux turns ':' in a session name into '_', so this id never collides with a session. */
 export const UNATTACHED_ROOM_ID = ':unattached';
 export const UNATTACHED_ROOM_TITLE = 'Unattached';
+
+export const STATUS_TEXT: Record<DeskStatus, string> = {
+  working: 'Working',
+  'needs-permission': 'Needs permission',
+  'waiting-input': 'Waiting for you',
+  done: 'Done',
+  idle: 'Idle',
+};
 
 /** Desks that need the owner, most urgent first. */
 export const ATTENTION_STATUSES: readonly DeskStatus[] = ['needs-permission', 'waiting-input'];
@@ -74,7 +87,7 @@ function activityText(
  */
 export function deriveOffice(
   chars: Iterable<Character>,
-  terminals: Record<number, AgentTerminalMeta>,
+  terminals: Record<number, TerminalMeta>,
   agentTools: Record<number, ToolActivity[]> = {},
 ): RoomModel[] {
   const desks = new Map<number, DeskModel>();

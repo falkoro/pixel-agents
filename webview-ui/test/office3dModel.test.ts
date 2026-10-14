@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 
 import { describe, test } from 'vitest';
 
-import type { AgentTerminalMeta } from '../src/hooks/useExtensionMessages.js';
 import type { Character } from '../src/office/types.js';
+import type { TerminalMeta } from '../src/office3d/model.js';
 import { deriveOffice, deskStatus, roomHeat, UNATTACHED_ROOM_ID } from '../src/office3d/model.js';
 
 function char(id: number, extra: Partial<Character> = {}): Character {
@@ -23,7 +23,7 @@ function char(id: number, extra: Partial<Character> = {}): Character {
   } as Character;
 }
 
-function pane(session: string, windowId = '@1', paneId = '%1'): AgentTerminalMeta['tmux'] {
+function pane(session: string, windowId = '@1', paneId = '%1'): TerminalMeta['tmux'] {
   return { session, windowId, paneId };
 }
 

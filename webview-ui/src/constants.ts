@@ -334,9 +334,13 @@ export const OFFICE3D_ROOM_PAD_FRONT = 0.4;
 export const OFFICE3D_ROOM_GAP = 1.1;
 /** On-screen depth per metre of floor relative to width, desks and labels included. */
 export const OFFICE3D_DEPTH_FORESHORTEN = 0.9;
+/** Viewports narrower than this (width/height) get the phone treatment. */
+export const OFFICE3D_NARROW_ASPECT = 0.8;
+/** Extra floor at the front of each room on narrow viewports, per desk, for its name list. */
+export const OFFICE3D_ROSTER_LINE_DEPTH = 0.9;
 /** Default camera tilt from straight down, wide and narrow viewports (radians). */
 export const OFFICE3D_CAMERA_POLAR = 0.78;
-export const OFFICE3D_CAMERA_POLAR_NARROW = 0.6;
+export const OFFICE3D_CAMERA_POLAR_NARROW = 0.5;
 export const OFFICE3D_CAMERA_MAX_POLAR = 1.22;
 export const OFFICE3D_CAMERA_MIN_DISTANCE = 2.5;
 export const OFFICE3D_CAMERA_FOV = 34;
@@ -350,6 +354,12 @@ export const OFFICE3D_POLL_MS = 250;
 export const OFFICE3D_CLICK_SLOP_PX = 6;
 export const OFFICE3D_SCREEN_WIDTH_PX = 512;
 export const OFFICE3D_SCREEN_HEIGHT_PX = 300;
+/** Rooms the owner watches most: starred in the label and the room bar. */
+export const OFFICE3D_PINNED_ROOMS: readonly string[] = ['emperor-8'];
+/** Screen space the room bar (top) and toolbar (bottom) cover; camera fits leave it free. */
+export const OFFICE3D_INSET_TOP_PX = 60;
+export const OFFICE3D_INSET_BOTTOM_PX = 72;
+export const OFFICE3D_INSET_SIDE_PX = 14;
 
 export const OFFICE3D_STATUS_COLORS = {
   working: 0x4da3ff,
@@ -362,9 +372,10 @@ export const OFFICE3D_STATUS_COLORS = {
 export const OFFICE3D_COLORS = {
   background: 0x12121b,
   ground: 0x17171f,
-  roomFloor: 0x2b2d3d,
+  roomFloor: 0x30334a,
+  roomCarpet: 0x464b66,
   roomEdge: 0x3a3d52,
-  wall: 0x3a3c50,
+  wall: 0x4a4d68,
   wallTrim: 0x60648a,
   glass: 0xa9bcff,
   deskTop: 0xb98b5e,
@@ -386,6 +397,11 @@ export const OFFICE3D_COLORS = {
   screenText: 0xdde5f5,
   screenDim: 0x7d8699,
   screenOff: 0x05060a,
+  gridFill: 0xc4c4d0,
+  gridLine: 0xffffff,
+  eye: 0x15161c,
+  badgeGlyph: 0x12121b,
+  white: 0xffffff,
 } as const;
 
 /** Character looks per palette index (0-5); hueShift rotates the shirt beyond six agents. */

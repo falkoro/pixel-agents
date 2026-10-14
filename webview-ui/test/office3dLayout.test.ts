@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 
 import { describe, test } from 'vitest';
 
-import type { DeskModel, RoomModel } from '../src/office3d/model.js';
 import type { OfficePlan } from '../src/office3d/layout.js';
 import { planOffice } from '../src/office3d/layout.js';
+import type { DeskModel, RoomModel } from '../src/office3d/model.js';
 
 let nextId = 1;
 function room(id: string, desks: number): RoomModel {
@@ -79,6 +79,25 @@ describe('planOffice', () => {
         assert.ok(Math.abs(minZ + plan.depth / 2) < 1e-9);
       }
     }
+  });
+
+  test('a short last row is centred under the full rows', () => {
+    const plan = planOffice(rooms(8), 1600 / 900);
+    assert.equal(plan.columns, 3);
+    const last = plan.rooms.slice(6);
+    assert.ok(Math.abs(last[0].x + last[1].x) < 1e-9);
+    assert.ok(last[0].x < last[1].x);
+  });
+
+  test('a narrow viewport adds front floor for each room name list', () => {
+    const wide = planOffice(rooms(4, 2), 1600 / 900);
+    const phone = planOffice(rooms(4, 2), 390 / 844);
+    assert.ok(phone.rooms[0].depth > wide.rooms[0].depth);
+    const deskZ = (plan: OfficePlan) => plan.rooms[0].desks[0].z - plan.rooms[0].z;
+    assert.ok(
+      Math.abs(deskZ(phone) - deskZ(wide) + (phone.rooms[0].depth - wide.rooms[0].depth) / 2) <
+        1e-9,
+    );
   });
 
   test('desks stay inside their room and never share a spot', () => {
