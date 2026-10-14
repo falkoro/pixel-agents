@@ -40,6 +40,21 @@ export interface SubagentCharacter {
   label: string;
 }
 
+export interface AgentTerminalMeta {
+  name: string | null;
+  tmux: { session: string; windowId: string; paneId: string } | null;
+}
+
+function isTmuxLocation(value: unknown): value is NonNullable<AgentTerminalMeta['tmux']> {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.session === 'string' &&
+    typeof record.windowId === 'string' &&
+    typeof record.paneId === 'string'
+  );
+}
+
 interface FurnitureAsset {
   id: string;
   name: string;
@@ -100,6 +115,8 @@ interface ExtensionMessageState {
    *  pending install from a failed one, per provider — A's status is never a verdict on B's install. */
   hooksStatusSeq: Record<string, number>;
   hooksInfoShown: boolean;
+  /** Live tmux metadata keyed by agent id. A null tmux closes the terminal panel. */
+  agentTerminals: Record<number, AgentTerminalMeta>;
   /** First-run consent ask (hooksConsentRequest). Non-null while the server waits on an answer; carries the provider
    *  and the server's exact disclosure copy, so the consent step renders the terms being approved with no client
    *  duplicate to drift. Cleared on answer/dismissal, and by a matching provider's hooksStatus installed=true. */
@@ -153,6 +170,8 @@ export function useExtensionMessages(
   const consentRequest = consentQueue[0] ?? null;
   const [areaMappings, setAreaMappings] = useState<Record<string, string[]>>({});
   const [showAreas, setShowAreas] = useState(false);
+  const [agentTerminals, setAgentTerminals] = useState<Record<number, AgentTerminalMeta>>({});
+  const terminalsRef = useRef<Record<number, AgentTerminalMeta>>({});
 
   // The renderer keeps its own module-level copy (read every rAF frame), so both
   // sources of truth move together — the persisted value on settingsLoaded and
@@ -181,6 +200,24 @@ export function useExtensionMessages(
     const noteFolderName = (name?: string) => {
       if (!name) return;
       setAgentFolderNames((prev) => (prev.includes(name) ? prev : [...prev, name]));
+    };
+
+    const applyTerminal = (id: number, info: AgentTerminalMeta): void => {
+      terminalsRef.current = { ...terminalsRef.current, [id]: info };
+      setAgentTerminals(terminalsRef.current);
+      const ch = getOfficeState().characters.get(id);
+      if (!ch) return;
+      ch.sessionName = info.name;
+      ch.tmux = info.tmux;
+    };
+
+    const stampTerminal = (id: number): void => {
+      const info = terminalsRef.current[id];
+      if (!info) return;
+      const ch = getOfficeState().characters.get(id);
+      if (!ch) return;
+      ch.sessionName = info.name;
+      ch.tmux = info.tmux;
     };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -234,6 +271,7 @@ export function useExtensionMessages(
         for (const p of pendingAgents) {
           os.addAgent(p.id, p.palette, p.hueShift, p.seatId, true, p.folderName);
           if (p.isHeadless) os.setHeadless(p.id, true);
+          stampTerminal(p.id);
         }
         pendingAgents = [];
         layoutReadyRef.current = true;
@@ -289,6 +327,12 @@ export function useExtensionMessages(
             os.setHeadless(id, true);
           }
         }
+        if (typeof msg.name === 'string' || msg.tmux != null) {
+          applyTerminal(id, {
+            name: typeof msg.name === 'string' ? msg.name : null,
+            tmux: isTmuxLocation(msg.tmux) ? msg.tmux : null,
+          });
+        }
         saveAgentSeats(os);
       } else if (msg.type === 'agentClosed') {
         const id = msg.id as number;
@@ -317,6 +361,18 @@ export function useExtensionMessages(
         os.removeAllSubagents(id);
         setSubagentCharacters((prev) => prev.filter((s) => s.parentAgentId !== id));
         os.removeAgent(id);
+        if (id in terminalsRef.current) {
+          const next = { ...terminalsRef.current };
+          delete next[id];
+          terminalsRef.current = next;
+          setAgentTerminals(next);
+        }
+      } else if (msg.type === 'agentTerminal') {
+        const id = msg.id as number;
+        applyTerminal(id, {
+          name: typeof msg.name === 'string' ? msg.name : null,
+          tmux: isTmuxLocation(msg.tmux) ? msg.tmux : null,
+        });
       } else if (msg.type === 'existingAgents') {
         const incoming = msg.agents as number[];
         const meta = (msg.agentMeta || {}) as Record<number, ExistingAgentMeta>;
@@ -354,6 +410,18 @@ export function useExtensionMessages(
           }
           return merged.sort((a, b) => a - b);
         });
+        const incomingTerminals = msg.agentTerminals as
+          Record<string, { name?: string | null; tmux?: unknown }> | undefined;
+        if (incomingTerminals) {
+          for (const [rawId, info] of Object.entries(incomingTerminals)) {
+            const id = Number(rawId);
+            if (!Number.isInteger(id)) continue;
+            applyTerminal(id, {
+              name: typeof info?.name === 'string' ? info.name : null,
+              tmux: isTmuxLocation(info?.tmux) ? info.tmux : null,
+            });
+          }
+        }
       } else if (msg.type === 'agentToolStart') {
         const id = msg.id as number;
         const toolId = msg.toolId as string;
@@ -783,6 +851,7 @@ export function useExtensionMessages(
     hooksStatusSeq,
     setHooksEnabled,
     hooksInfoShown,
+    agentTerminals,
     consentRequest,
     // Called when a tour ends (answer + Let's Go, the X, Escape) with the providerId that tour was ABOUT, removing
     // that entry so the next provider's ask becomes the head. Keyed by id, not a blind shift: an answered ask's own

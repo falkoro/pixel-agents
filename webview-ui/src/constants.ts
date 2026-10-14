@@ -312,3 +312,13 @@ export const PET_THUMB_SCALE_MARGIN = 0.85;
 export const EMPTY_SPRITE_THUMBNAIL_BG = '#333';
 /** Maximum string length for a PlacedPet.id (defends against pathologically-long layout entries). */
 export const MAX_PET_ID_LENGTH = 128;
+
+// ── Terminal panel ───────────────────────────────────────────
+/** Smallest font the pane terminal will try when fitting the panel. */
+export const TERMINAL_FONT_MIN_PX = 6;
+/** Largest font the pane terminal will try when fitting the panel. */
+export const TERMINAL_FONT_MAX_PX = 28;
+/** Fallback xterm colors when the page CSS variables have not resolved. */
+export const TERMINAL_BG = '#1e1e2e';
+export const TERMINAL_FG = '#e6e6f0';
+export const TERMINAL_CURSOR = '#746fff';

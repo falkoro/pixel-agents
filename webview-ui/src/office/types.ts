@@ -252,6 +252,11 @@ export interface Character {
   contextTokens: number;
   /** Window `contextTokens` is measured against. */
   maxContextTokens: number;
+
+  /** Live tmux pane, when the server has one for this agent. */
+  tmux?: { session: string; windowId: string; paneId: string } | null;
+  /** Registry session name shown in the terminal panel header. */
+  sessionName?: string | null;
 }
 
 export const PetState = { IDLE: 'idle', WALK: 'walk', FOLLOW: 'follow' } as const;
