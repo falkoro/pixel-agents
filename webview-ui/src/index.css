@@ -130,6 +130,16 @@
     box-shadow: var(--shadow-pixel);
   }
 
+  .terminal-panel-wide {
+    flex-basis: 100%;
+  }
+
+  .terminal-panel-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 6px;
+  }
+
   .terminal-panel-header {
     display: flex;
     align-items: center;

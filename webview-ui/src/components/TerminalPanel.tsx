@@ -69,6 +69,8 @@ export function TerminalPanel({ agentId, name, tmux, onClose }: TerminalPanelPro
   const hostRef = useRef<HTMLDivElement>(null);
   const [disconnected, setDisconnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A pane as wide as a desktop terminal is unreadable at 45%; let it take the page.
+  const [wide, setWide] = useState(false);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -144,7 +146,7 @@ export function TerminalPanel({ agentId, name, tmux, onClose }: TerminalPanelPro
   return (
     // Keys typed into the pane must not reach the office's window-level shortcuts.
     <aside
-      className="terminal-panel"
+      className={wide ? 'terminal-panel terminal-panel-wide' : 'terminal-panel'}
       aria-label="Terminal"
       onKeyDown={(event) => event.stopPropagation()}
     >
@@ -155,14 +157,25 @@ export function TerminalPanel({ agentId, name, tmux, onClose }: TerminalPanelPro
           {disconnected ? <span className="terminal-panel-name">disconnected</span> : null}
           {error ? <span className="terminal-panel-name">{error}</span> : null}
         </p>
-        <button
-          type="button"
-          className="terminal-panel-close"
-          aria-label="Close terminal"
-          onClick={onClose}
-        >
-          ×
-        </button>
+        <span className="terminal-panel-actions">
+          <button
+            type="button"
+            className="terminal-panel-close"
+            aria-label={wide ? 'Show the office next to the terminal' : 'Widen the terminal'}
+            aria-pressed={wide}
+            onClick={() => setWide((value) => !value)}
+          >
+            {wide ? 'split' : 'wide'}
+          </button>
+          <button
+            type="button"
+            className="terminal-panel-close"
+            aria-label="Close terminal"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </span>
       </header>
       <div ref={hostRef} className="terminal-panel-body" />
     </aside>
