@@ -14,9 +14,10 @@ import * as path from 'path';
 
 import type { HookProvider } from '../../core/src/provider.js';
 import type { AgentStateStore } from './agentStateStore.js';
-import { DEFAULT_MAX_CONTEXT_TOKENS } from './constants.js';
+import { CLAUDE_SESSION_POLL_INTERVAL_MS, DEFAULT_MAX_CONTEXT_TOKENS } from './constants.js';
 import { DismissalTracker } from './dismissalTracker.js';
 import {
+  adoptExternalSession,
   adoptExternalSessionFromHook,
   ensureProjectScan,
   isTrackedProjectDir,
@@ -36,8 +37,14 @@ import {
 } from './fileWatcher.js';
 import type { HookEvent } from './hookEventHandler.js';
 import { HookEventHandler } from './hookEventHandler.js';
+import { syncLiveSessionMetadata } from './liveSessionSync.js';
 import { assignPaletteIfNeeded } from './paletteAssigner.js';
 import { PathSet, pathsMatch } from './pathKey.js';
+import {
+  type ClaudeSessionRegistry,
+  type LiveClaudeSession,
+  transcriptPathForSession,
+} from './providers/hook/claude/claudeSessionRegistry.js';
 import { SessionRouter } from './sessionRouter.js';
 import { SubagentWatch } from './subagentWatch.js';
 import { cancelPermissionTimer, cancelWaitingTimer } from './timerManager.js';
@@ -73,9 +80,17 @@ export class AgentRuntime {
   readonly activeAgentId = { current: null as number | null };
   private externalScanTimer: ReturnType<typeof setInterval> | null = null;
   private staleCheckTimer: ReturnType<typeof setInterval> | null = null;
+  private liveSessionTimer: ReturnType<typeof setInterval> | null = null;
+  private lastLiveSessionCount = -1;
 
   // Configuration refs (mutable, shared with scanners)
   readonly watchAllSessions = { current: false };
+  /**
+   * Process-lifetime latch for the CLI `--watch-all` flag. webviewReady and
+   * the settings checkbox read the persisted preference and would otherwise
+   * turn Watch All Sessions back off. Not written to disk.
+   */
+  forceWatchAll = false;
   readonly hooksEnabled = { current: true };
 
   // Dependencies
@@ -438,6 +453,81 @@ export class AgentRuntime {
     );
   }
 
+  /**
+   * Poll the Claude session registry. The first tick runs immediately.
+   * Adopts a live session when Watch All is on or its project dir is tracked,
+   * even if the transcript is older or smaller than the heuristic scanners allow.
+   */
+  startLiveSessionRegistry(registry: ClaudeSessionRegistry): void {
+    if (this.liveSessionTimer) return;
+    const tick = (): void => {
+      try {
+        registry.refresh();
+        this.applyLiveSessions(registry);
+      } catch (err) {
+        console.error(
+          `[Pixel Agents] Live session scan failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    };
+    tick();
+    this.liveSessionTimer = setInterval(tick, CLAUDE_SESSION_POLL_INTERVAL_MS);
+  }
+
+  private applyLiveSessions(registry: ClaudeSessionRegistry): void {
+    const sessions = registry.sessions();
+    if (sessions.length !== this.lastLiveSessionCount) {
+      this.lastLiveSessionCount = sessions.length;
+      console.log(`[Pixel Agents] Live Claude sessions: ${sessions.length}`);
+    }
+    syncLiveSessionMetadata(this.store, registry);
+    for (const session of sessions) {
+      this.adoptLiveSession(session);
+    }
+  }
+
+  private adoptLiveSession(session: LiveClaudeSession): void {
+    const jsonlFile = transcriptPathForSession(session);
+    if (!jsonlFile) return;
+    const projectDir = path.dirname(jsonlFile);
+    const watching =
+      this.forceWatchAll || this.watchAllSessions.current || isTrackedProjectDir(projectDir);
+    if (!watching) return;
+    for (const agent of this.store.values()) {
+      if (agent.sessionId === session.sessionId || pathsMatch(agent.jsonlFile, jsonlFile)) return;
+    }
+    if (this.dismissalTracker.isDismissed(jsonlFile)) return;
+    if (this.dismissalTracker.isPermanentlyDismissed(jsonlFile)) return;
+
+    this.knownJsonlFiles.add(jsonlFile);
+    this.dismissalTracker.clearSeededMtime(jsonlFile);
+    adoptExternalSession(
+      jsonlFile,
+      projectDir,
+      this.store.nextAgentId,
+      this.store,
+      this.fileWatchers,
+      this.pollingTimers,
+      this.waitingTimers,
+      this.permissionTimers,
+      () => this.store.persist(),
+    );
+    const adopted = [...this.store.values()].find(
+      (agent) => agent.sessionId === session.sessionId || pathsMatch(agent.jsonlFile, jsonlFile),
+    );
+    if (!adopted) return;
+    adopted.sessionId = session.sessionId;
+    adopted.tmux = session.tmux;
+    adopted.registryName = session.name;
+    this.registerAgent(adopted.sessionId, adopted.id);
+    this.store.broadcast({
+      type: 'agentTerminal',
+      id: adopted.id,
+      name: session.name,
+      tmux: session.tmux,
+    });
+  }
+
   /** Start stale external agent check (removes agents whose JSONL files are deleted). */
   startStaleCheck(): void {
     if (this.staleCheckTimer) return;
@@ -572,6 +662,10 @@ export class AgentRuntime {
     if (this.staleCheckTimer) {
       clearInterval(this.staleCheckTimer);
       this.staleCheckTimer = null;
+    }
+    if (this.liveSessionTimer) {
+      clearInterval(this.liveSessionTimer);
+      this.liveSessionTimer = null;
     }
 
     for (const id of [...this.store.keys()]) {

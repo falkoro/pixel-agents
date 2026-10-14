@@ -1155,7 +1155,7 @@ export function adoptExternalSessionFromHook(
   }
 }
 
-function adoptExternalSession(
+export function adoptExternalSession(
   jsonlFile: string,
   projectDir: string,
   nextAgentIdRef: { current: number },

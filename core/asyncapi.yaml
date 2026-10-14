@@ -81,6 +81,7 @@ components:
         - $ref: '#/components/schemas/ProviderCapabilities'
         # Agent lifecycle
         - $ref: '#/components/schemas/AgentCreated'
+        - $ref: '#/components/schemas/AgentTerminal'
         - $ref: '#/components/schemas/AgentClosed'
         - $ref: '#/components/schemas/AgentSelected'
         - $ref: '#/components/schemas/ExistingAgents'
@@ -190,6 +191,59 @@ components:
         hueShift:
           type: integer
           description: Server-assigned hue shift in degrees (0-360).
+        name:
+          type: string
+          description: Registry session name, when the agent is a live Claude process.
+        tmux:
+          $ref: '#/components/schemas/TmuxLocation'
+
+    AgentTerminal:
+      description: |
+        Live tmux location for an agent. `tmux` null means the process left tmux
+        or exited, and the terminal panel should close.
+      type: object
+      additionalProperties: false
+      required: [type, id, name, tmux]
+      properties:
+        type:
+          const: agentTerminal
+        id:
+          type: integer
+        name:
+          type: [string, 'null']
+        tmux:
+          oneOf:
+            - $ref: '#/components/schemas/TmuxLocation'
+            - type: 'null'
+
+    TmuxLocation:
+      description: A tmux pane. Window and pane ids keep their `@` and `%` sigils.
+      type: object
+      additionalProperties: false
+      required: [session, windowId, paneId]
+      properties:
+        session:
+          type: string
+          description: tmux session name, for example emperor-6.
+        windowId:
+          type: string
+          description: tmux window id including the leading @.
+        paneId:
+          type: string
+          description: tmux pane id including the leading %.
+
+    AgentTerminalInfo:
+      description: Registry name and tmux location carried on an existing-agents snapshot.
+      type: object
+      additionalProperties: false
+      required: [name, tmux]
+      properties:
+        name:
+          type: [string, 'null']
+        tmux:
+          oneOf:
+            - $ref: '#/components/schemas/TmuxLocation'
+            - type: 'null'
 
     AgentClosed:
       description: An agent has been removed from the office.
@@ -242,6 +296,11 @@ components:
           description: Map of agent ID (string) to external flag.
           additionalProperties:
             type: boolean
+        agentTerminals:
+          type: object
+          description: Map of agent ID (string) to live tmux metadata.
+          additionalProperties:
+            $ref: '#/components/schemas/AgentTerminalInfo'
 
     AgentStatus:
       description: Active vs waiting state for an agent (drives character animation).

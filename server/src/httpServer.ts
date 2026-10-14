@@ -5,6 +5,7 @@ import * as crypto from 'crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import Fastify from 'fastify';
 
+import type { AccessVerifier } from './accessJwt.js';
 import type { AgentRuntime } from './agentRuntime.js';
 import type { AgentStateStore } from './agentStateStore.js';
 import type {
@@ -19,6 +20,9 @@ import {
   WS_CLOSE_FORBIDDEN_ORIGIN,
   WS_CLOSE_UNAUTHORIZED,
 } from './constants.js';
+import { agentCreatedTerminalFields } from './liveSessionSync.js';
+import type { ClaudeSessionRegistry } from './providers/hook/claude/claudeSessionRegistry.js';
+import { type AttachedTerminal, attachTmuxPane } from './tmuxTerminal.js';
 import type { AgentState } from './types.js';
 
 /** Options for creating the HTTP + WebSocket server. */
@@ -45,6 +49,12 @@ export interface HttpServerOptions {
   onSetHooksEnabled?: SetHooksEnabledSideEffect;
   /** Invoked when an external asset directory is added/removed. Standalone reloads + re-broadcasts assets here. */
   onReloadAssets?: ReloadAssetsSideEffect;
+  /** Dev/test only. Enables /ws/term without Cloudflare Access. */
+  insecureLocalTerminal?: boolean;
+  /** When set, every request except hook posts must carry a valid Access JWT. */
+  access?: AccessVerifier;
+  /** Live Claude sessions. /ws/term resolves an agent through this map. */
+  sessionRegistry?: ClaudeSessionRegistry;
 }
 
 /** Result of createHttpServer(). */
@@ -84,9 +94,11 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
 
   // ── Routes ──────────────────────────────────────────────────
 
+  registerAccessAndTerminalGate(app, options);
   registerHealthRoute(app);
   registerHookRoute(app, options);
   registerWebSocketRoute(app, options);
+  registerTerminalRoute(app, options);
 
   // ── Listen ──────────────────────────────────────────────────
 
@@ -182,6 +194,7 @@ function registerWebSocketRoute(app: FastifyInstance, options: HttpServerOptions
         hooksOnly: agent.hooksOnly || undefined,
         palette: agent.palette,
         hueShift: agent.hueShift,
+        ...agentCreatedTerminalFields(agent),
       });
     };
 
@@ -320,6 +333,142 @@ function bearerAuth(expectedToken: string) {
 }
 
 // ── Utilities ──────────────────────────────────────────────────
+
+const accessEmails = new WeakMap<FastifyRequest, string | null>();
+
+function headerValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function requestPath(url: string): string {
+  const query = url.indexOf('?');
+  return query === -1 ? url : url.slice(0, query);
+}
+
+function logEmail(email: string | null | undefined): string {
+  const value = email && email.length > 0 ? email : '-';
+  return value.replace(/[\r\n]/g, '').slice(0, 200);
+}
+
+function toBuffer(data: unknown): Buffer {
+  if (Buffer.isBuffer(data)) return data;
+  if (data instanceof ArrayBuffer) return Buffer.from(data);
+  if (Array.isArray(data)) {
+    const parts = data.filter((part): part is Buffer => Buffer.isBuffer(part));
+    return Buffer.concat(parts);
+  }
+  return Buffer.alloc(0);
+}
+
+/**
+ * Access JWT, when configured, runs before the WebSocket upgrade. Hook posts
+ * keep their bearer check and skip the JWT. /ws/term stays closed unless
+ * Access is configured or the insecure local flag is on.
+ */
+function registerAccessAndTerminalGate(app: FastifyInstance, options: HttpServerOptions): void {
+  const terminalEnabled = options.insecureLocalTerminal === true || options.access !== undefined;
+  app.addHook('onRequest', async (request, reply) => {
+    const pathOnly = requestPath(request.url);
+    const hookPost =
+      request.method === 'POST' &&
+      (pathOnly === HOOK_API_PREFIX || pathOnly.startsWith(`${HOOK_API_PREFIX}/`));
+    if (!hookPost && options.access) {
+      const result = await options.access.verify(
+        headerValue(request.headers['cf-access-jwt-assertion']),
+      );
+      if (!result.ok) {
+        await reply.code(403).send('forbidden');
+        return;
+      }
+      accessEmails.set(request, result.email);
+    }
+    if (pathOnly !== '/ws/term') return;
+    // Typing into a pane is privileged: same-origin, and with Access off the
+    // server token too, so a page on another site cannot drive a terminal.
+    if (
+      !terminalEnabled ||
+      !isAllowedWebSocketOrigin(request.headers.origin, request.headers.host) ||
+      (!options.access && !standaloneTokenValid(request.url, options.token))
+    ) {
+      await reply.code(403).send('forbidden');
+      return;
+    }
+    let agentId = '';
+    try {
+      agentId = new URL(request.url, 'http://localhost').searchParams.get('agentId') ?? '';
+    } catch {
+      agentId = '';
+    }
+    if (!/^\d+$/.test(agentId)) {
+      await reply.code(400).send('bad agent');
+    }
+  });
+}
+
+function registerTerminalRoute(app: FastifyInstance, options: HttpServerOptions): void {
+  app.get('/ws/term', { websocket: true }, (socket, request) => {
+    let agentId = Number.NaN;
+    try {
+      const raw = new URL(request.url, 'http://localhost').searchParams.get('agentId') ?? '';
+      agentId = /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
+    } catch {
+      agentId = Number.NaN;
+    }
+    const agent = Number.isInteger(agentId) ? options.store.get(agentId) : undefined;
+    const location = agent ? options.sessionRegistry?.get(agent.sessionId)?.tmux : undefined;
+    if (!agent || !location) {
+      safeSend(socket, { type: 'error', message: 'no terminal for this agent' });
+      socket.close();
+      return;
+    }
+
+    const email = logEmail(accessEmails.get(request));
+    const pane = `${location.session}:${location.windowId}.${location.paneId}`;
+    console.log(`[term] attach email=${email} pane=${pane}`);
+
+    let stopped = false;
+    let attached: AttachedTerminal | null = null;
+    const detach = (): void => {
+      if (stopped) return;
+      stopped = true;
+      console.log(`[term] detach email=${email} pane=${pane}`);
+      attached?.stop();
+    };
+    socket.on('close', detach);
+    socket.on('error', detach);
+
+    void attachTmuxPane(
+      location,
+      (data) => {
+        if (socket.readyState === 1) socket.send(Buffer.from(data, 'utf8'));
+      },
+      (cols, rows) => {
+        safeSend(socket, { type: 'size', cols, rows });
+      },
+    )
+      .then((term) => {
+        if (stopped) {
+          term.stop();
+          return;
+        }
+        attached = term;
+        socket.on('message', (data: unknown, isBinary: boolean) => {
+          if (!isBinary || stopped) return;
+          const bytes = toBuffer(data);
+          if (bytes.length === 0) return;
+          term.pty.write(bytes);
+        });
+      })
+      .catch((err: unknown) => {
+        console.error(
+          `[term] attach failed: ${err instanceof Error ? err.message : 'unknown error'}`,
+        );
+        if (stopped) return;
+        safeSend(socket, { type: 'error', message: 'could not attach' });
+        socket.close();
+      });
+  });
+}
 
 function safeSend(
   socket: { send: (data: string) => void; readyState: number },

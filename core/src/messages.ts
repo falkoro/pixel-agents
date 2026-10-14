@@ -10,6 +10,7 @@
 export type ServerMessage =
   | ProviderCapabilities
   | AgentCreated
+  | AgentTerminal
   | AgentClosed
   | AgentSelected
   | ExistingAgents
@@ -77,6 +78,21 @@ export interface AgentCreated {
   isExternal?: boolean;
   palette?: number;
   hueShift?: number;
+  name?: string;
+  tmux?: TmuxLocation;
+}
+
+export interface TmuxLocation {
+  session: string;
+  windowId: string;
+  paneId: string;
+}
+
+export interface AgentTerminal {
+  type: 'agentTerminal';
+  id: number;
+  name: string | null;
+  tmux: TmuxLocation | null;
 }
 
 export interface AgentClosed {
@@ -95,12 +111,18 @@ export interface ExistingAgents {
   agentMeta: Record<string, AgentSeatMeta>;
   folderNames: Record<string, string>;
   externalAgents: Record<string, boolean>;
+  agentTerminals?: Record<string, AgentTerminalInfo>;
 }
 
 export interface AgentSeatMeta {
   palette?: number;
   hueShift?: number;
   seatId?: string;
+}
+
+export interface AgentTerminalInfo {
+  name: string | null;
+  tmux: TmuxLocation | null;
 }
 
 export interface AgentStatus {
