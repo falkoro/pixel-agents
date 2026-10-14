@@ -322,3 +322,75 @@ export const TERMINAL_FONT_MAX_PX = 28;
 export const TERMINAL_BG = '#1e1e2e';
 export const TERMINAL_FG = '#e6e6f0';
 export const TERMINAL_CURSOR = '#746fff';
+
+// ── 3D office ────────────────────────────────────────────────
+/** Room grid (world metres). A desk slot is one desk plus room for its helpers. */
+export const OFFICE3D_DESK_PITCH_X = 2.7;
+export const OFFICE3D_DESK_PITCH_Z = 3.0;
+export const OFFICE3D_DESKS_PER_ROW = 4;
+export const OFFICE3D_ROOM_PAD_X = 0.5;
+export const OFFICE3D_ROOM_PAD_BACK = 0.9;
+export const OFFICE3D_ROOM_PAD_FRONT = 0.4;
+export const OFFICE3D_ROOM_GAP = 1.1;
+/** On-screen depth per metre of floor relative to width, desks and labels included. */
+export const OFFICE3D_DEPTH_FORESHORTEN = 0.9;
+/** Default camera tilt from straight down, wide and narrow viewports (radians). */
+export const OFFICE3D_CAMERA_POLAR = 0.78;
+export const OFFICE3D_CAMERA_POLAR_NARROW = 0.6;
+export const OFFICE3D_CAMERA_MAX_POLAR = 1.22;
+export const OFFICE3D_CAMERA_MIN_DISTANCE = 2.5;
+export const OFFICE3D_CAMERA_FOV = 34;
+/** Fraction of the viewport (NDC half-extent) the fitted office may fill. */
+export const OFFICE3D_FIT_MARGIN = 0.92;
+export const OFFICE3D_FOCUS_DURATION_MS = 900;
+export const OFFICE3D_MAX_PIXEL_RATIO = 2;
+/** Ambient animations (typing, beacons) redraw at this rate; camera moves use full rate. */
+export const OFFICE3D_ANIMATION_FPS = 30;
+export const OFFICE3D_POLL_MS = 250;
+export const OFFICE3D_CLICK_SLOP_PX = 6;
+export const OFFICE3D_SCREEN_WIDTH_PX = 512;
+export const OFFICE3D_SCREEN_HEIGHT_PX = 300;
+
+export const OFFICE3D_STATUS_COLORS = {
+  working: 0x4da3ff,
+  'needs-permission': 0xffa21f,
+  'waiting-input': 0xc77dff,
+  done: 0x5fd38a,
+  idle: 0x7a7f96,
+} as const;
+
+export const OFFICE3D_COLORS = {
+  background: 0x12121b,
+  ground: 0x17171f,
+  roomFloor: 0x2b2d3d,
+  roomEdge: 0x3a3d52,
+  wall: 0x3a3c50,
+  wallTrim: 0x60648a,
+  glass: 0xa9bcff,
+  deskTop: 0xb98b5e,
+  deskFrame: 0x262830,
+  monitorBezel: 0x101116,
+  chairFabric: 0x30354a,
+  chairFrame: 0x1b1c22,
+  keyboard: 0x23252d,
+  mug: 0xe9e4da,
+  plantPot: 0xd9d2c3,
+  plantLeaf: 0x3e8e5c,
+  pants: 0x2a2e3c,
+  shoes: 0x15161b,
+  selection: 0xf4f4ff,
+  keyLight: 0xfff1de,
+  sky: 0xc9d7ff,
+  groundBounce: 0x2a2234,
+  screenBg: 0x0a0e16,
+  screenText: 0xdde5f5,
+  screenDim: 0x7d8699,
+  screenOff: 0x05060a,
+} as const;
+
+/** Character looks per palette index (0-5); hueShift rotates the shirt beyond six agents. */
+export const OFFICE3D_SHIRTS = [
+  0x3466a8, 0xb3473f, 0x2f8a7a, 0x8a6a2f, 0x6b4f93, 0x4f6170,
+] as const;
+export const OFFICE3D_SKINS = [0xf0c8a0, 0xd9a273, 0xb57a4c, 0x8a5634, 0xf5d5b8, 0xa86c45] as const;
+export const OFFICE3D_HAIR = [0x2a1c12, 0x5a3a22, 0x121212, 0x8a5a2b, 0xcfae6e, 0x3b2a20] as const;
