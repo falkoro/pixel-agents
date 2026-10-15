@@ -4,7 +4,7 @@ import { describe, test } from 'vitest';
 
 import type { ChoiceStore } from '../src/office3d/characterChoice.js';
 import { loadCharacter, saveCharacter } from '../src/office3d/characterChoice.js';
-import type { CharacterMood } from '../src/office3d/characters.js';
+import type { ActorKind, CharacterMood } from '../src/office3d/characters.js';
 import {
   CHARACTER_KINDS,
   CharacterKit,
@@ -87,6 +87,13 @@ describe('character choice', () => {
     store.setItem('pixel-agents.office3d.character:ops', 'dragon');
     assert.equal(loadCharacter('ops', store), defaultCharacterKind('ops'));
   });
+
+  test('goblins are kept for helpers, so a desk never becomes one', () => {
+    assert.ok(!(CHARACTER_KINDS as readonly string[]).includes('goblin'));
+    const store = memoryStore();
+    store.setItem('pixel-agents.office3d.character:ops', 'goblin');
+    assert.equal(loadCharacter('ops', store), defaultCharacterKind('ops'));
+  });
 });
 
 describe('poses', () => {
@@ -110,6 +117,24 @@ describe('poses', () => {
     assert.equal(new Set(still).size, still.length);
   });
 
+  test('a working goblin swings a hammer where the others type', () => {
+    const swing = (kind: ActorKind) => {
+      const lo = new Float32Array(POSE_SIZE).fill(Infinity);
+      const hi = new Float32Array(POSE_SIZE).fill(-Infinity);
+      const out = new Float32Array(POSE_SIZE);
+      for (let t = 0; t < 1; t += 0.02) {
+        characterPose(kind, 'work', t, t, 0.3, { seated: false, reduced: false }, out);
+        out.forEach((v, i) => {
+          lo[i] = Math.min(lo[i], v);
+          hi[i] = Math.max(hi[i], v);
+        });
+      }
+      return Math.max(...hi.map((v, i) => v - lo[i]));
+    };
+    assert.ok(swing('goblin') > 1.5, `goblin swing ${swing('goblin')}`);
+    for (const kind of CHARACTER_KINDS) assert.ok(swing(kind) < 0.5, `${kind} ${swing(kind)}`);
+  });
+
   test('work types, and a calm office eventually stops moving', () => {
     assert.notDeepEqual(pose('work', 0.1, false), pose('work', 0.2, false));
     assert.ok(characterMoving('work', 3, 0.3, false));
@@ -123,7 +148,7 @@ describe('poses', () => {
 describe('kit', () => {
   test('every kind and colourway builds one skinned mesh', () => {
     const kit = new CharacterKit();
-    for (const kind of CHARACTER_KINDS) {
+    for (const kind of [...CHARACTER_KINDS, 'goblin'] as const) {
       for (const variant of [0, 1, 2]) {
         const character = kit.create(kind, variant);
         const geo = character.mesh.geometry;

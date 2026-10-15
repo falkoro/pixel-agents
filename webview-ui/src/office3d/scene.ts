@@ -62,7 +62,13 @@ import {
   OFFICE3D_WALL_HEIGHT,
 } from '../constants.js';
 import { loadCharacter, saveCharacter } from './characterChoice.js';
-import type { Character, CharacterKind, CharacterMood, PoseOptions } from './characters.js';
+import type {
+  ActorKind,
+  Character,
+  CharacterKind,
+  CharacterMood,
+  PoseOptions,
+} from './characters.js';
 import {
   CHARACTER_KINDS,
   CharacterKit,
@@ -160,7 +166,7 @@ interface Ctx {
 class Actor {
   character: Character;
   status: DeskStatus | null = null;
-  private kind: CharacterKind;
+  private kind: ActorKind;
   private mood: CharacterMood = 'doze';
   private moodStart = 0;
   private blendStart = -Infinity;
@@ -170,20 +176,14 @@ class Actor {
   private readonly to = new Float32Array(POSE_SIZE);
   private readonly pose = new Float32Array(POSE_SIZE);
 
-  constructor(
-    kit: CharacterKit,
-    kind: CharacterKind,
-    variant: number,
-    seed: number,
-    seated: boolean,
-  ) {
+  constructor(kit: CharacterKit, kind: ActorKind, variant: number, seed: number, seated: boolean) {
     this.kind = kind;
     this.seed = seed;
     this.opts = { seated, reduced: false };
     this.character = kit.create(kind, variant);
   }
 
-  reskin(kit: CharacterKit, kind: CharacterKind, variant: number): void {
+  reskin(kit: CharacterKit, kind: ActorKind, variant: number): void {
     const old = this.character;
     this.character = kit.create(kind, variant);
     this.character.mesh.position.copy(old.mesh.position);
@@ -347,9 +347,7 @@ class DeskView {
   setKind(kind: CharacterKind): void {
     this.kind = kind;
     this.syncPick();
-    const variant = characterVariant(this.name);
-    this.actor.reskin(this.ctx.kit, kind, variant);
-    this.helperList.forEach((h, i) => h.actor.reskin(this.ctx.kit, kind, variant + 1 + i));
+    this.actor.reskin(this.ctx.kit, kind, characterVariant(this.name));
   }
 
   /** Returns true when the desk just finished a task. */
@@ -396,7 +394,7 @@ class DeskView {
       if (!h) {
         const actor = new Actor(
           this.ctx.kit,
-          this.kind,
+          'goblin',
           characterVariant(this.name) + 1 + i,
           characterSeed(`${this.name}#${i}`),
           false,

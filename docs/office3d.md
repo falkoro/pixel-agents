@@ -21,7 +21,7 @@ The 3D office answers two questions at a glance: what is each session doing, and
 - A desk's default kind comes from a hash of its name. The colourway also comes from the name.
 - Each desk label has a picker. The choice is stored in localStorage under `pixel-agents.office3d.character:<name>`. Every storage access is wrapped in try/catch, so blocked storage falls back to the default.
 - The picker holds one option until it is opened. That keeps seventeen labels light.
-- Helpers are mini versions of their parent's kind. They stand beside the desk.
+- Sub-agents are goblins: half-size helpers that stand beside their parent's desk and swing a hammer while they work. Nobody can pick the goblin for a desk.
 
 ## Status
 
@@ -64,7 +64,8 @@ The 3D office answers two questions at a glance: what is each session doing, and
 
 ## Known weaknesses
 
-- Compact labels clamp long names to two lines, so `firstmate-goldmary-e9` reads as "firstmate -...".
+- In the overview a long name wraps to up to four lines.
+- On a phone the roster's two-line names can cover the pinned pod's sign. The pinned desk itself stays in view.
 - On a phone the porch name list covers the porch desks.
 - A "?" badge on a back-row desk can overlap the label of the desk in front.
 - The 2D game loop does not run under 3D. A done or waiting bubble stays until the desk is clicked or the agent resumes.

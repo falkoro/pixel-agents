@@ -41,6 +41,9 @@ export type CharacterKind = (typeof CHARACTER_KINDS)[number];
 export const isCharacterKind = (value: unknown): value is CharacterKind =>
   (CHARACTER_KINDS as readonly unknown[]).includes(value);
 
+/** Every kind the kit builds. Goblins are kept for sub-agent helpers, so nobody picks one. */
+export type ActorKind = CharacterKind | 'goblin';
+
 /** What a character is doing. The host maps its own states onto these. */
 export type CharacterMood = 'work' | 'alert' | 'ask' | 'cheer' | 'rest' | 'doze';
 
@@ -302,7 +305,7 @@ class Draw {
   }
 }
 
-const SPECS: Record<CharacterKind, KindSpec> = {
+const SPECS: Record<ActorKind, KindSpec> = {
   robot: {
     label: 'Robot',
     coats: [0x8fa7c0, 0x7cc7ae, 0xe59a52],
@@ -588,9 +591,52 @@ const SPECS: Record<CharacterKind, KindSpec> = {
       d.legs(STEEL, DARK_STEEL);
     },
   },
+  goblin: {
+    label: 'Goblin',
+    coats: [0x7bb04a, 0x5f9e5a, 0x9bb83c],
+    acc: { parent: HEAD, at: [0, HEAD_Y + 0.2, -0.02] },
+    acc2: [0, HEAD_Y + 0.03, 0],
+    eyes: [0, HEAD_Y + 0.04, 0.17],
+    build(d, coat) {
+      const leather = 0x7a4f2c;
+      d.head('sphere', coat, [0, 0, 0], [0.4, 0.36, 0.36]);
+      for (const side of [1, -1]) {
+        d.head('cone', coat, [0.25 * side, 0.03, 0], [0.1, 0.3, 0.06], [0, 0, -1.25 * side], ACC2);
+        d.head(
+          'cone',
+          PINK,
+          [0.24 * side, 0.03, 0.02],
+          [0.05, 0.18, 0.02],
+          [0, 0, -1.25 * side],
+          ACC2,
+        );
+      }
+      d.eyes(0xffd84f, 0.07, 0.085, 0.16, 0.04);
+      d.head('ball', INK, [0.085, 0.04, 0.2], [0.03, 0.04, 0.02]);
+      d.head('ball', INK, [-0.085, 0.04, 0.2], [0.03, 0.04, 0.02]);
+      d.head('cone', coat, [0, -0.02, 0.2], [0.08, 0.14, 0.08], [1.35, 0, 0]);
+      d.head('box', WHITE, [0.05, -0.12, 0.165], [0.035, 0.04, 0.02]);
+      d.head('box', WHITE, [-0.05, -0.12, 0.165], [0.035, 0.04, 0.02]);
+      d.head('cone', leather, [0, 0.2, -0.02], [0.3, 0.22, 0.3], [-0.2, 0, 0], ACC);
+      d.part('sphere', leather, BODY, [0, 0.44, 0], [0.32, 0.36, 0.26]);
+      d.part('box', 0x4a3020, BODY, [0, 0.36, 0.01], [0.33, 0.05, 0.27]);
+      d.part('box', GOLD, BODY, [0, 0.36, 0.14], [0.06, 0.05, 0.01]);
+      d.arms(coat, coat, 0.09);
+      d.limb(
+        'cyl',
+        0x8a6a45,
+        ARM_R,
+        [-HAND[0], HAND[1], HAND[2] - 0.02],
+        [-HAND[0], HAND[1], 0.26],
+        0.035,
+      );
+      d.part('box', DARK_STEEL, ARM_R, [-HAND[0], HAND[1], 0.27], [0.08, 0.16, 0.09]);
+      d.legs(0x4a3020, leather, 0.1);
+    },
+  },
 };
 
-export const characterLabel = (kind: CharacterKind): string => SPECS[kind].label;
+export const characterLabel = (kind: ActorKind): string => SPECS[kind].label;
 
 /** FNV-1a: stable across reloads, servers and browsers. */
 export function hash(text: string): number {
@@ -680,7 +726,7 @@ export class CharacterKit {
   readonly material = new MeshStandardMaterial({ vertexColors: true, roughness: 0.6 });
   private readonly geometries = new Map<string, BufferGeometry>();
 
-  create(kind: CharacterKind, variant: number): Character {
+  create(kind: ActorKind, variant: number): Character {
     const spec = SPECS[kind];
     const coat = spec.coats[variant % spec.coats.length];
     const key = `${kind}:${coat}`;
@@ -801,7 +847,7 @@ export interface PoseOptions {
  * the pose is still and a cheer is the rest pose.
  */
 export function characterPose(
-  kind: CharacterKind,
+  kind: ActorKind,
   mood: CharacterMood,
   t: number,
   moodTime: number,
@@ -819,7 +865,13 @@ export function characterPose(
   if (opts.reduced) return;
 
   const s = seed * Math.PI * 2;
-  if (effective === 'work') {
+  if (effective === 'work' && kind === 'goblin' && !opts.seated) {
+    // Hammering: wind up high, strike low.
+    const swing = Math.sin(t * 12 + s);
+    out[ARM_R_X] = -1.5 + 0.9 * swing;
+    out[BODY_X] += 0.08 * swing;
+    out[HEAD_X] += 0.05 * swing;
+  } else if (effective === 'work') {
     const speed = opts.seated ? 14 : 11;
     out[ARM_L_X] += 0.1 * Math.sin(t * speed + s);
     out[ARM_R_X] += 0.1 * Math.sin(t * speed + s + 2.1);
@@ -885,6 +937,10 @@ export function characterPose(
       break;
     case 'knight':
       out[ACC_X] = 0.3 * e * Math.sin(u * 6);
+      break;
+    case 'goblin':
+      out[ACC2_S] = 1 + 0.2 * e * Math.sin(u * 12);
+      out[HEAD_TURN] += 0.4 * e * Math.sin(u * 4);
       break;
   }
 }
