@@ -29,6 +29,11 @@ agents=(
   "ops|deploy-watch-21|.claude|working|80|24"
   "scratch|try-vite-02|.claude|done|80|24"
   "-|nightly-digest|.claude|working|0|0"
+  "emperor-4|reviewer-api-3f|.claude-goldmary|working|237|58"
+  "emperor-4|reviewer-web-8a|.claude-goldmary|done|237|58"
+  "emperor-4|docs-sweep-41|.claude|working|80|24"
+  "emperor-4|ci-babysit-d2|.claude|permission|80|24"
+  "emperor-4|ux-notes-77|.claude|asking|80|24"
 )
 tools=(Read Grep Edit Bash Glob Write WebFetch)
 targets=(server/src/httpServer.ts useExtensionMessages webview-ui/src/App.tsx "npm test" "**/*.tsx" docs/notes.md https://example.com)
@@ -105,8 +110,6 @@ start_rig() {
     fi
     i=$((i + 1))
   done
-  # A room session with nobody in it.
-  tmux -L "$sock" new-session -d -s emperor-4 -x 80 -y 24 "exec sleep infinity"
 
   (HOME="$dir/home" PIXEL_AGENTS_TMUX_SOCKET="$sock" \
     PIXEL_AGENTS_OFFICE_ROOMS="${PIXEL_AGENTS_OFFICE_ROOMS-emperor=emperor-*}" \
