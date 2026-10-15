@@ -33,7 +33,8 @@
   pointer-events: none;
 }
 
-.o3d-labels button {
+.o3d-labels button,
+.o3d-labels select {
   pointer-events: auto;
   margin: 0;
   border-radius: 0;
@@ -49,7 +50,9 @@
 /* ── Desk labels ───────────────────────────────────────────── */
 .o3d-desk,
 .o3d-desk *,
-.o3d-chip {
+.o3d-chip,
+.o3d-pod,
+.o3d-badge {
   font-family: var(--o3d-sans);
 }
 
@@ -108,6 +111,37 @@
   outline-offset: 3px;
 }
 
+.o3d-desk-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  max-inline-size: 100%;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+}
+
+/* The character picker: shown when a desk is close enough to read, or selected. */
+.o3d-pick {
+  display: none;
+  max-inline-size: 100%;
+  margin-block-start: 3px;
+  padding: 0 2px;
+  font-size: 0.8em;
+  color: var(--color-text);
+  background: var(--color-bg-dark);
+  border: 1px solid var(--color-border);
+  border-radius: 0;
+  cursor: pointer;
+}
+.o3d-labels[data-density='full'] .o3d-pick,
+.o3d-desk[data-selected='true'] .o3d-pick {
+  display: block;
+}
+
 .o3d-desk-row {
   display: flex;
   align-items: center;
@@ -164,6 +198,83 @@
   display: none;
 }
 
+/* ── Status badges over the characters ─────────────────────── */
+.o3d-badge {
+  --o3d-status: var(--o3d-idle);
+  display: grid;
+  place-items: center;
+  min-inline-size: 1.5em;
+  block-size: 1.5em;
+  font-size: clamp(12px, calc(var(--o3d-ppm) * 0.32px), 24px);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-bg-dark);
+  background: var(--o3d-status);
+  border: 2px solid var(--color-bg-dark);
+  box-shadow: var(--shadow-pixel);
+  pointer-events: none;
+}
+.o3d-badge-small {
+  font-size: clamp(10px, calc(var(--o3d-ppm) * 0.22px), 16px);
+}
+/* CSS2DRenderer owns `transform`. The separate rotate and scale properties would act on its
+   translation too, so every badge motion is a plain translate. */
+.o3d-badge[data-status='needs-permission'] {
+  --o3d-status: var(--o3d-needs-permission);
+  animation: o3d-bob 0.8s ease-in-out infinite alternate;
+}
+.o3d-badge[data-status='waiting-input'] {
+  --o3d-status: var(--o3d-waiting-input);
+  animation: o3d-sway 1.6s ease-in-out infinite alternate;
+}
+.o3d-badge[data-status='done'] {
+  --o3d-status: var(--o3d-done);
+  animation: o3d-pop 0.5s ease-out;
+}
+.o3d-badge[data-status='idle'] {
+  font-size: clamp(11px, calc(var(--o3d-ppm) * 0.26px), 18px);
+  font-style: italic;
+  color: var(--color-text-muted);
+  background: none;
+  border: 0;
+  box-shadow: none;
+  animation: o3d-drift 3.2s ease-in-out infinite;
+}
+.o3d-labels[data-density='roster'] .o3d-badge:is([data-status='idle'], [data-status='done']) {
+  display: none;
+}
+
+/* ── Pod signs ─────────────────────────────────────────────── */
+.o3d-pod {
+  padding: 1px 7px 2px;
+  font-size: clamp(11px, calc(var(--o3d-ppm) * 0.2px), 15px);
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 2px solid var(--color-border);
+  box-shadow: var(--shadow-pixel);
+}
+.o3d-pod:hover {
+  background: var(--color-btn-hover);
+}
+.o3d-pod[data-pinned='true'] {
+  background: var(--color-active-bg);
+  border-color: var(--color-accent-bright);
+}
+.o3d-pod[data-heat='waiting-input'] {
+  border-color: var(--o3d-waiting-input);
+}
+.o3d-pod[data-heat='needs-permission'] {
+  border-color: var(--o3d-needs-permission);
+}
+.o3d-labels[data-density='roster'] .o3d-pod {
+  padding: 0 4px;
+  font-size: 11px;
+  border-width: 1px;
+}
+
 /* ── Room roster (desks too small for their own labels) ───── */
 .o3d-roster {
   display: none;
@@ -174,6 +285,14 @@
 }
 .o3d-labels[data-density='roster'] .o3d-roster {
   display: flex;
+}
+/* On a narrow viewport the list sits in floor planOffice reserves in front of the pods,
+   OFFICE3D_NARROW_ROSTER_COLUMNS names per line. */
+@media (max-aspect-ratio: 4/5) {
+  .o3d-labels[data-density='roster'] .o3d-roster {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 /* On a wide viewport the background strip is wide and shallow, so its list wraps across it.
    4/5 is OFFICE3D_NARROW_ASPECT: planOffice reserves floor for the same number of lines. */
@@ -270,6 +389,7 @@
   max-inline-size: 100%;
 }
 .o3d-room[data-pinned='true'] .o3d-room-title::before,
+.o3d-pod[data-pinned='true']::before,
 .o3d-bar-btn[data-pinned='true']::before {
   content: '';
   display: inline-block;
@@ -353,6 +473,31 @@
   border-block-end-color: var(--o3d-waiting-input);
 }
 
+.o3d-bar-pod {
+  font-size: 15px;
+}
+
+.o3d-bar-sep {
+  flex: none;
+  inline-size: 2px;
+  margin-inline: 2px;
+  background: var(--color-border);
+}
+
+.o3d-stats {
+  position: absolute;
+  inset-block-start: 48px;
+  inset-inline-end: 8px;
+  z-index: 2;
+  padding: 2px 6px;
+  font:
+    12px/1.3 ui-monospace,
+    monospace;
+  color: var(--color-text);
+  background: var(--color-bg-dark);
+  pointer-events: none;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .o3d-bar-btn:hover {
     background: var(--color-btn-hover);
@@ -370,9 +515,44 @@
   }
 }
 
+@keyframes o3d-bob {
+  to {
+    translate: 0 -5px;
+  }
+}
+
+@keyframes o3d-sway {
+  from {
+    translate: -4px 0;
+  }
+  to {
+    translate: 4px 0;
+  }
+}
+
+@keyframes o3d-pop {
+  from {
+    translate: 0 -12px;
+    opacity: 0;
+  }
+}
+
+@keyframes o3d-drift {
+  0%,
+  100% {
+    translate: 0 0;
+    opacity: 0.5;
+  }
+  50% {
+    translate: 3px -6px;
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .o3d-desk::after,
-  .o3d-room::after {
+  .o3d-room::after,
+  .o3d-badge {
     animation: none;
   }
 }

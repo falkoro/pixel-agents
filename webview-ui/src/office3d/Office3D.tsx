@@ -8,11 +8,9 @@ import { OFFICE3D_POLL_MS, OFFICE3D_STATUS_COLORS } from '../constants.js';
 import type { AgentTerminalMeta } from '../hooks/useExtensionMessages.js';
 import type { OfficeState } from '../office/engine/officeState.js';
 import type { ToolActivity } from '../office/types.js';
-import type { Look } from './assets.js';
 import type { RoomModel } from './model.js';
-import { deriveOffice, roomHeat } from './model.js';
+import { BACKGROUND_ROOM_ID, deriveOffice, roomHeat } from './model.js';
 import { OfficeScene } from './scene.js';
-import { cssColor } from './screen.js';
 
 interface Office3DProps {
   officeState: OfficeState;
@@ -23,8 +21,21 @@ interface Office3DProps {
 }
 
 const STATUS_VARS = Object.fromEntries(
-  Object.entries(OFFICE3D_STATUS_COLORS).map(([status, hex]) => [`--o3d-${status}`, cssColor(hex)]),
+  Object.entries(OFFICE3D_STATUS_COLORS).map(([status, hex]) => [
+    `--o3d-${status}`,
+    `#${hex.toString(16).padStart(6, '0')}`,
+  ]),
 ) as CSSProperties;
+
+/** The room whose pods the bar lists: the focused room, the focused pod's room, or the only room. */
+function barRoom(rooms: RoomModel[], focused: string | null): RoomModel | undefined {
+  const grid = rooms.filter((r) => r.id !== BACKGROUND_ROOM_ID);
+  return (
+    rooms.find((r) => r.id === focused) ??
+    rooms.find((r) => r.pods.some((p) => p.id === focused)) ??
+    (grid.length === 1 ? grid[0] : undefined)
+  );
+}
 
 /**
  * The 3D office view. OfficeState is mutated in place by the message handler
@@ -69,14 +80,10 @@ export default function Office3D(props: Office3DProps) {
       if (document.hidden) return;
       const { officeState: os, agentTerminals, agentTools, officeRooms } = latest.current;
       const next = deriveOffice(os.characters.values(), agentTerminals, agentTools, officeRooms);
-      const looks = new Map<number, Look>();
-      for (const ch of os.characters.values()) {
-        looks.set(ch.id, { palette: ch.palette, hueShift: ch.hueShift });
-      }
-      const signature = JSON.stringify([next, [...looks], os.selectedAgentId]);
+      const signature = JSON.stringify([next, os.selectedAgentId]);
       if (signature === last) return;
       last = signature;
-      scene.update({ rooms: next, looks, selectedId: os.selectedAgentId });
+      scene.update({ rooms: next, selectedId: os.selectedAgentId });
       setRooms(next);
     }
     poll();
@@ -88,6 +95,8 @@ export default function Office3D(props: Office3DProps) {
     };
   }, []);
 
+  const room = barRoom(rooms, focused);
+  const pods = room && room.pods.length > 1 ? room.pods : [];
   return (
     <div className="o3d-root" style={STATUS_VARS}>
       <div ref={hostRef} className="o3d-host" />
@@ -96,21 +105,35 @@ export default function Office3D(props: Office3DProps) {
           type="button"
           className="o3d-bar-btn"
           aria-pressed={focused === null}
-          onClick={() => sceneRef.current?.focusRoom(null)}
+          onClick={() => sceneRef.current?.focus(null)}
         >
           All
         </button>
-        {rooms.map((room) => (
+        {rooms.map((r) => (
           <button
-            key={room.id}
+            key={r.id}
             type="button"
             className="o3d-bar-btn"
-            aria-pressed={focused === room.id}
-            data-heat={roomHeat(room) ?? 'calm'}
-            data-pinned={room.pods.some((pod) => pod.pinned) || undefined}
-            onClick={() => sceneRef.current?.focusRoom(room.id)}
+            aria-pressed={focused === r.id}
+            data-heat={roomHeat(r) ?? 'calm'}
+            data-pinned={r.pods.some((pod) => pod.pinned) || undefined}
+            onClick={() => sceneRef.current?.focus(r.id)}
           >
-            {room.title}
+            {r.title}
+          </button>
+        ))}
+        {pods.length > 0 && <span className="o3d-bar-sep" aria-hidden="true" />}
+        {pods.map((pod) => (
+          <button
+            key={`pod:${pod.id}`}
+            type="button"
+            className="o3d-bar-btn o3d-bar-pod"
+            aria-pressed={focused === pod.id}
+            data-heat={roomHeat({ id: pod.id, title: pod.title, pods: [pod] }) ?? 'calm'}
+            data-pinned={pod.pinned || undefined}
+            onClick={() => sceneRef.current?.focus(pod.id)}
+          >
+            {pod.title}
           </button>
         ))}
       </nav>
