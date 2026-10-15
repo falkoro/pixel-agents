@@ -16,11 +16,16 @@ export function parseRoomConfig(raw: string | undefined): OfficeRoom[] {
     if (!text) continue;
     const eq = text.indexOf('=');
     const name = (eq === -1 ? text : text.slice(0, eq)).trim();
-    const patterns = (eq === -1 ? text : text.slice(eq + 1)).split(/[\s,]+/).filter(Boolean);
+    const patterns = parseGlobs(eq === -1 ? text : text.slice(eq + 1));
     if (!name || patterns.length === 0) continue;
     rooms.push({ name, patterns });
   }
   return rooms;
+}
+
+/** Globs separated by commas or whitespace, as in PIXEL_AGENTS_OFFICE_PINNED. */
+export function parseGlobs(raw: string | undefined): string[] {
+  return (raw ?? '').split(/[\s,]+/).filter(Boolean);
 }
 
 export function matchesRoomPattern(patterns: readonly string[], session: string): boolean {

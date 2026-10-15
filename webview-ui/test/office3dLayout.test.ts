@@ -13,15 +13,22 @@ function room(id: string, desks: number): RoomModel {
   return {
     id,
     title: id,
-    desks: Array.from({ length: desks }, (): DeskModel => ({
-      agentId: nextId++,
-      name: 'a',
-      pane: null,
-      status: 'idle',
-      tool: null,
-      contextRatio: 0,
-      helpers: [],
-    })),
+    pods: [
+      {
+        id,
+        title: id,
+        pinned: false,
+        desks: Array.from({ length: desks }, (): DeskModel => ({
+          agentId: nextId++,
+          name: 'a',
+          pane: null,
+          status: 'idle',
+          tool: null,
+          contextRatio: 0,
+          helpers: [],
+        })),
+      },
+    ],
   };
 }
 

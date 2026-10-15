@@ -13,6 +13,7 @@ import {
   OFFICE3D_ROSTER_LINE_DEPTH,
 } from '../constants.js';
 import type { RoomModel } from './model.js';
+import { roomDesks } from './model.js';
 import { BACKGROUND_ROOM_ID } from './model.js';
 
 /** Centre of one desk slot on the floor plane (x right, z toward the viewer). */
@@ -48,9 +49,10 @@ function placeDesks(
   scale: number,
 ): DeskSpot[] {
   const pitchZ = OFFICE3D_DESK_PITCH_Z * scale;
-  return room.desks.map((desk, d) => {
+  const desks = roomDesks(room);
+  return desks.map((desk, d) => {
     const row = Math.floor(d / perRow);
-    const inRow = Math.min(perRow, room.desks.length - row * perRow);
+    const inRow = Math.min(perRow, desks.length - row * perRow);
     return {
       agentId: desk.agentId,
       x: x + ((d % perRow) - (inRow - 1) / 2) * OFFICE3D_DESK_PITCH_X,
@@ -74,7 +76,7 @@ export function planOffice(rooms: RoomModel[], aspect: number): OfficePlan {
   const grid = rooms.filter((r) => r.id !== BACKGROUND_ROOM_ID);
   const background = rooms.find((r) => r.id === BACKGROUND_ROOM_ID);
 
-  const maxDesks = Math.max(1, ...grid.map((r) => r.desks.length));
+  const maxDesks = Math.max(1, ...grid.map((r) => roomDesks(r).length));
   const deskCols = Math.min(maxDesks, OFFICE3D_DESKS_PER_ROW);
   const deskRows = Math.ceil(maxDesks / deskCols);
   const roomW = deskCols * OFFICE3D_DESK_PITCH_X + 2 * OFFICE3D_ROOM_PAD_X;
@@ -85,7 +87,7 @@ export function planOffice(rooms: RoomModel[], aspect: number): OfficePlan {
   const span = (count: number, size: number): number =>
     count * size + Math.max(0, count - 1) * OFFICE3D_ROOM_GAP;
 
-  const bgCount = background?.desks.length ?? 0;
+  const bgCount = background ? roomDesks(background).length : 0;
   const strip = (gridWidth: number) => {
     const minWidth =
       Math.min(bgCount, OFFICE3D_DESKS_PER_ROW) * OFFICE3D_DESK_PITCH_X + 2 * OFFICE3D_ROOM_PAD_X;

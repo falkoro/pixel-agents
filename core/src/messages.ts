@@ -337,6 +337,7 @@ export interface WorkspaceFolder {
 export interface OfficeRooms {
   type: 'officeRooms';
   rooms: OfficeRoom[];
+  pinned: string[];
 }
 
 export interface OfficeRoom {

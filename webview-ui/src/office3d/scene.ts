@@ -47,7 +47,6 @@ import {
   OFFICE3D_INSET_TOP_PX,
   OFFICE3D_MAX_PIXEL_RATIO,
   OFFICE3D_NARROW_ASPECT,
-  OFFICE3D_PINNED_ROOMS,
   OFFICE3D_ROOM_GAP,
   OFFICE3D_SCREEN_HEIGHT_PX,
   OFFICE3D_SCREEN_WIDTH_PX,
@@ -73,7 +72,7 @@ import {
 import type { DeskSpot, OfficePlan, RoomSpot } from './layout.js';
 import { planOffice } from './layout.js';
 import type { DeskModel, DeskStatus, HelperModel, RoomModel } from './model.js';
-import { BACKGROUND_ROOM_ID, roomHeat, STATUS_TEXT } from './model.js';
+import { BACKGROUND_ROOM_ID, roomDesks, roomHeat, STATUS_TEXT } from './model.js';
 import { paintScreen } from './screen.js';
 
 export interface OfficeSnapshot {
@@ -491,7 +490,6 @@ class RoomView {
       e.stopPropagation();
       onFocus(id);
     });
-    if (OFFICE3D_PINNED_ROOMS.includes(id)) this.labelEl.dataset.pinned = 'true';
     this.label = new CSS2DObject(this.labelEl);
     // When desks are too small on screen for their own labels, the room lists
     // its agents instead: one readable line each, still clickable.
@@ -531,10 +529,11 @@ class RoomView {
       this.paintHeat();
     }
     this.labelEl.dataset.heat = this.heat;
+    this.labelEl.dataset.pinned = String(room.pods.some((pod) => pod.pinned));
 
     this.syncRoster(room);
     const counts = new Map<DeskStatus, number>();
-    for (const desk of room.desks) counts.set(desk.status, (counts.get(desk.status) ?? 0) + 1);
+    for (const desk of roomDesks(room)) counts.set(desk.status, (counts.get(desk.status) ?? 0) + 1);
     const chips = HEAT_ORDER.filter((s) => counts.has(s));
     const chipsKey = chips.map((s) => `${s}:${counts.get(s)}`).join(',');
     if (chipsKey === this.chipsKey) return;
@@ -551,11 +550,12 @@ class RoomView {
   }
 
   private syncRoster(room: RoomModel): void {
-    const key = JSON.stringify(room.desks.map((d) => [d.agentId, d.name, d.status]));
+    const desks = roomDesks(room);
+    const key = JSON.stringify(desks.map((d) => [d.agentId, d.name, d.status]));
     if (key === this.rosterKey) return;
     this.rosterKey = key;
     this.rosterEl.replaceChildren(
-      ...room.desks.map((desk) => {
+      ...desks.map((desk) => {
         const item = el('button', 'o3d-roster-item');
         item.type = 'button';
         item.dataset.status = desk.status;
@@ -718,7 +718,7 @@ export class OfficeScene {
   update(snapshot: OfficeSnapshot): void {
     if (this.disposed) return;
     this.snapshot = snapshot;
-    const deskIds = new Set(snapshot.rooms.flatMap((r) => r.desks.map((d) => d.agentId)));
+    const deskIds = new Set(snapshot.rooms.flatMap((r) => roomDesks(r).map((d) => d.agentId)));
     for (const [id, desk] of this.desks) {
       if (deskIds.has(id)) continue;
       desk.dispose();
@@ -742,7 +742,7 @@ export class OfficeScene {
         this.scene.add(room.group);
       }
       room.apply(model);
-      for (const deskModel of model.desks) {
+      for (const deskModel of roomDesks(model)) {
         const look = snapshot.looks.get(deskModel.agentId) ?? { palette: 0, hueShift: 0 };
         let desk = this.desks.get(deskModel.agentId);
         if (!desk) {

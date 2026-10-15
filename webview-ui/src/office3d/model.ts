@@ -26,17 +26,30 @@ export interface TerminalMeta {
   tmux: DeskModel['pane'];
 }
 
-export interface RoomModel {
+/** The desks of one tmux session inside a room. */
+export interface PodModel {
+  /** The tmux session name, or NO_PANE_POD_ID for agents without a pane. */
   id: string;
   title: string;
+  pinned: boolean;
   desks: DeskModel[];
 }
 
-/** tmux turns ':' in a session name into '_', so this id never collides with a session. */
+export interface RoomModel {
+  id: string;
+  title: string;
+  pods: PodModel[];
+}
+
+/** tmux turns ':' in a session name into '_', so these ids never collide with a session. */
 export const BACKGROUND_ROOM_ID = ':background';
 export const BACKGROUND_ROOM_TITLE = 'Background';
+export const NO_PANE_POD_ID = ':no-pane';
+export const NO_PANE_POD_TITLE = 'No tmux';
 
-export type RoomConfig = OfficeRooms['rooms'];
+export type OfficeConfig = Pick<OfficeRooms, 'rooms' | 'pinned'>;
+
+export const roomDesks = (room: RoomModel): DeskModel[] => room.pods.flatMap((pod) => pod.desks);
 
 export const STATUS_TEXT: Record<DeskStatus, string> = {
   working: 'Working',
@@ -88,20 +101,21 @@ function activityText(
 }
 
 /**
- * Turn the live character map into rooms of desks. Without `roomConfig`, one
- * room per tmux session in natural order, then the background for agents
- * without a pane. With it, every configured room appears in config order, even
- * with no desks. A desk joins the first room whose glob matches its session.
- * A desk with no pane or no match goes to the background, last. Desks in a
- * named room sort by session, then window, pane, and agent id. Sub-agents ride
- * along as helpers of their parent's desk. `agentTools` supplies the human
- * activity label ("Reading App.tsx"); without it the bare tool name is used.
+ * Turn the live character map into rooms of session pods of desks. Without
+ * configured rooms, one room per tmux session in natural order. With them,
+ * every configured room appears in config order, even with no desks, and a
+ * desk joins the first room whose glob matches its session. A desk with no pane
+ * or no matching room goes to the background, last. Inside a room, pinned pods
+ * come first, then sessions in natural order, then the no-pane pod; desks in a
+ * pod sort by window, pane, and agent id. Sub-agents ride along as helpers of
+ * their parent's desk. `agentTools` supplies the human activity label
+ * ("Reading App.tsx"); without it the bare tool name is used.
  */
 export function deriveOffice(
   chars: Iterable<Character>,
   terminals: Record<number, TerminalMeta>,
   agentTools: Record<number, ToolActivity[]> = {},
-  roomConfig: RoomConfig | null = null,
+  config: OfficeConfig | null = null,
 ): RoomModel[] {
   const desks = new Map<number, DeskModel>();
   const subagents: Character[] = [];
@@ -144,70 +158,64 @@ export function deriveOffice(
     naturalCompare(a.pane?.windowId ?? '', b.pane?.windowId ?? '') ||
     naturalCompare(a.pane?.paneId ?? '', b.pane?.paneId ?? '') ||
     a.agentId - b.agentId;
-  const backgroundOrder = (a: DeskModel, b: DeskModel): number =>
-    Number(!a.pane) - Number(!b.pane) ||
-    naturalCompare(a.pane?.session ?? '', b.pane?.session ?? '') ||
-    paneOrder(a, b);
-  const withBackground = (rooms: RoomModel[], background: DeskModel[]): RoomModel[] => {
-    if (background.length === 0) return rooms;
-    rooms.push({
-      id: BACKGROUND_ROOM_ID,
-      title: BACKGROUND_ROOM_TITLE,
-      desks: background.sort(backgroundOrder),
-    });
-    return rooms;
+  const podOrder = (a: PodModel, b: PodModel): number =>
+    Number(b.pinned) - Number(a.pinned) ||
+    Number(a.id === NO_PANE_POD_ID) - Number(b.id === NO_PANE_POD_ID) ||
+    naturalCompare(a.id, b.id);
+  const pinned = config?.pinned ?? [];
+  const toPods = (roomDeskList: DeskModel[]): PodModel[] => {
+    const bySession = new Map<string, DeskModel[]>();
+    for (const desk of roomDeskList) {
+      const id = desk.pane?.session ?? NO_PANE_POD_ID;
+      const list = bySession.get(id) ?? [];
+      list.push(desk);
+      bySession.set(id, list);
+    }
+    return [...bySession]
+      .map(([id, podDesks]) => ({
+        id,
+        title: id === NO_PANE_POD_ID ? NO_PANE_POD_TITLE : id,
+        pinned: id !== NO_PANE_POD_ID && matchesRoomPattern(pinned, id),
+        desks: podDesks.sort(paneOrder),
+      }))
+      .sort(podOrder);
   };
 
-  if (roomConfig) {
-    const buckets = roomConfig.map((room) => ({ room, desks: [] as DeskModel[] }));
-    const background: DeskModel[] = [];
-    for (const desk of desks.values()) {
-      const session = desk.pane?.session;
-      const bucket = session
-        ? buckets.find((entry) => matchesRoomPattern(entry.room.patterns, session))
-        : undefined;
-      if (bucket) bucket.desks.push(desk);
-      else background.push(desk);
-    }
-    return withBackground(
-      buckets.map(({ room, desks: roomDesks }) => ({
-        id: room.name,
-        title: room.name,
-        desks: roomDesks.sort(
-          (a, b) => naturalCompare(a.pane?.session ?? '', b.pane?.session ?? '') || paneOrder(a, b),
-        ),
-      })),
-      background,
-    );
-  }
-
-  const bySession = new Map<string, DeskModel[]>();
+  const named = config && config.rooms.length > 0 ? config.rooms : null;
+  const roomOf = (session: string | undefined): string | undefined =>
+    session && named
+      ? named.find((room) => matchesRoomPattern(room.patterns, session))?.name
+      : session;
+  const byRoom = new Map<string, DeskModel[]>(named?.map((room) => [room.name, []]));
   const background: DeskModel[] = [];
   for (const desk of desks.values()) {
-    const session = desk.pane?.session;
-    if (!session) {
+    const id = roomOf(desk.pane?.session);
+    if (id === undefined) {
       background.push(desk);
       continue;
     }
-    const list = bySession.get(session) ?? [];
+    const list = byRoom.get(id) ?? [];
     list.push(desk);
-    bySession.set(session, list);
+    byRoom.set(id, list);
   }
 
-  return withBackground(
-    [...bySession.keys()].sort(naturalCompare).map((session) => ({
-      id: session,
-      title: session,
-      desks: (bySession.get(session) ?? []).sort(paneOrder),
-    })),
-    background,
-  );
+  const ids = named ? [...byRoom.keys()] : [...byRoom.keys()].sort(naturalCompare);
+  const rooms: RoomModel[] = ids.map((id) => ({
+    id,
+    title: id,
+    pods: toPods(byRoom.get(id) ?? []),
+  }));
+  if (background.length > 0) {
+    rooms.push({ id: BACKGROUND_ROOM_ID, title: BACKGROUND_ROOM_TITLE, pods: toPods(background) });
+  }
+  return rooms;
 }
 
 /** The most urgent status in a room, used to heat its floor and label. */
 export function roomHeat(room: RoomModel): DeskStatus | null {
   for (const status of ATTENTION_STATUSES) {
-    if (room.desks.some((d) => d.status === status || d.helpers.some((h) => h.status === status))) {
+    const desks = roomDesks(room);
+    if (desks.some((d) => d.status === status || d.helpers.some((h) => h.status === status))) {
       return status;
     }
   }

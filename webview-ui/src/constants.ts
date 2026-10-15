@@ -358,8 +358,6 @@ export const OFFICE3D_POLL_MS = 250;
 export const OFFICE3D_CLICK_SLOP_PX = 6;
 export const OFFICE3D_SCREEN_WIDTH_PX = 512;
 export const OFFICE3D_SCREEN_HEIGHT_PX = 300;
-/** Rooms the owner watches most: starred in the label and the room bar. */
-export const OFFICE3D_PINNED_ROOMS: readonly string[] = ['emperor-8'];
 /** Screen space the room bar (top) and toolbar (bottom) cover; camera fits leave it free. */
 export const OFFICE3D_INSET_TOP_PX = 60;
 export const OFFICE3D_INSET_BOTTOM_PX = 72;

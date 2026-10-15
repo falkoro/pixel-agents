@@ -5,7 +5,15 @@ import { describe, test } from 'vitest';
 import { matchesRoomPattern, parseRoomConfig } from '../../core/src/roomPatterns.js';
 import type { Character } from '../src/office/types.js';
 import type { TerminalMeta } from '../src/office3d/model.js';
-import { BACKGROUND_ROOM_ID, deriveOffice, deskStatus, roomHeat } from '../src/office3d/model.js';
+import type { OfficeConfig } from '../src/office3d/model.js';
+import {
+  BACKGROUND_ROOM_ID,
+  deriveOffice,
+  deskStatus,
+  NO_PANE_POD_ID,
+  roomDesks,
+  roomHeat,
+} from '../src/office3d/model.js';
 
 function char(id: number, extra: Partial<Character> = {}): Character {
   return {
@@ -22,6 +30,10 @@ function char(id: number, extra: Partial<Character> = {}): Character {
     matrixEffect: null,
     ...extra,
   } as Character;
+}
+
+function cfg(rooms: OfficeConfig['rooms'], pinned: string[] = []): OfficeConfig {
+  return { rooms, pinned };
 }
 
 function pane(session: string, windowId = '@1', paneId = '%1'): TerminalMeta['tmux'] {
@@ -70,7 +82,7 @@ describe('deriveOffice', () => {
       ['emperor-2', 'emperor-8', 'emperor-10'],
     );
     assert.deepEqual(
-      rooms[0].desks.map((d) => d.agentId),
+      roomDesks(rooms[0]).map((d) => d.agentId),
       [2, 4],
     );
     assert.equal(rooms[0].title, 'emperor-2');
@@ -84,7 +96,7 @@ describe('deriveOffice', () => {
     ];
     const [room] = deriveOffice(chars, {});
     assert.deepEqual(
-      room.desks.map((d) => d.agentId),
+      roomDesks(room).map((d) => d.agentId),
       [2, 3, 1],
     );
   });
@@ -104,10 +116,10 @@ describe('deriveOffice', () => {
     const last = rooms[rooms.length - 1];
     assert.equal(last.title, 'Background');
     assert.deepEqual(
-      last.desks.map((d) => d.agentId),
+      roomDesks(last).map((d) => d.agentId),
       [3, 5],
     );
-    assert.equal(last.desks[0].pane, null);
+    assert.equal(roomDesks(last)[0].pane, null);
   });
 
   test('no background when every agent has a pane', () => {
@@ -120,8 +132,8 @@ describe('deriveOffice', () => {
     const terminals = { 1: { name: 'firstmate-b4', tmux: pane('emperor-8') } };
     const [room] = deriveOffice(chars, terminals);
     assert.equal(room.id, 'emperor-8');
-    assert.equal(room.desks[0].name, 'firstmate-b4');
-    assert.deepEqual(room.desks[0].pane, pane('emperor-8'));
+    assert.equal(roomDesks(room)[0].name, 'firstmate-b4');
+    assert.deepEqual(roomDesks(room)[0].pane, pane('emperor-8'));
   });
 
   test('a terminal entry with no pane sends the agent to the background', () => {
@@ -139,24 +151,29 @@ describe('deriveOffice', () => {
       char(5, { tmux: pane('emperor-2', '@1', '%9') }),
       char(4, { tmux: pane('emperor-8', '@2', '%1') }),
     ];
-    const rooms = deriveOffice(chars, {}, {}, [{ name: 'emperor', patterns: ['emperor-*'] }]);
+    const rooms = deriveOffice(chars, {}, {}, cfg([{ name: 'emperor', patterns: ['emperor-*'] }]));
     assert.deepEqual(
       rooms.map((r) => [r.id, r.title]),
       [['emperor', 'emperor']],
     );
     assert.deepEqual(
-      rooms[0].desks.map((d) => d.agentId),
+      roomDesks(rooms[0]).map((d) => d.agentId),
       [3, 6, 5, 2, 4, 1],
     );
   });
 
   test('an empty configured room is still present', () => {
-    const rooms = deriveOffice([char(1, { tmux: pane('emperor-2') })], {}, {}, [
-      { name: 'emperor', patterns: ['emperor-*'] },
-      { name: 'lab', patterns: ['lab-*'] },
-    ]);
+    const rooms = deriveOffice(
+      [char(1, { tmux: pane('emperor-2') })],
+      {},
+      {},
+      cfg([
+        { name: 'emperor', patterns: ['emperor-*'] },
+        { name: 'lab', patterns: ['lab-*'] },
+      ]),
+    );
     assert.deepEqual(
-      rooms.map((r) => [r.id, r.desks.map((d) => d.agentId)]),
+      rooms.map((r) => [r.id, roomDesks(r).map((d) => d.agentId)]),
       [
         ['emperor', [1]],
         ['lab', []],
@@ -169,10 +186,10 @@ describe('deriveOffice', () => {
       [char(1, { tmux: pane('alpha') }), char(2, { tmux: pane('zeta') })],
       {},
       {},
-      [
+      cfg([
         { name: 'zeta', patterns: ['zeta'] },
         { name: 'alpha', patterns: ['alpha'] },
-      ],
+      ]),
     );
     assert.deepEqual(
       rooms.map((r) => r.id),
@@ -181,12 +198,17 @@ describe('deriveOffice', () => {
   });
 
   test('the first matching room wins', () => {
-    const rooms = deriveOffice([char(1, { tmux: pane('emperor-2') })], {}, {}, [
-      { name: 'all', patterns: ['*'] },
-      { name: 'emperor', patterns: ['emperor-*'] },
-    ]);
+    const rooms = deriveOffice(
+      [char(1, { tmux: pane('emperor-2') })],
+      {},
+      {},
+      cfg([
+        { name: 'all', patterns: ['*'] },
+        { name: 'emperor', patterns: ['emperor-*'] },
+      ]),
+    );
     assert.deepEqual(
-      rooms.map((r) => [r.id, r.desks.map((d) => d.agentId)]),
+      rooms.map((r) => [r.id, roomDesks(r).map((d) => d.agentId)]),
       [
         ['all', [1]],
         ['emperor', []],
@@ -199,10 +221,10 @@ describe('deriveOffice', () => {
       [char(1, { tmux: pane('scratch') }), char(2, { tmux: pane('emperor-1') }), char(3)],
       {},
       {},
-      [{ name: 'emperor', patterns: ['emperor-*'] }],
+      cfg([{ name: 'emperor', patterns: ['emperor-*'] }]),
     );
     assert.deepEqual(
-      rooms.map((r) => [r.id, r.desks.map((d) => d.agentId)]),
+      rooms.map((r) => [r.id, roomDesks(r).map((d) => d.agentId)]),
       [
         ['emperor', [2]],
         [BACKGROUND_ROOM_ID, [1, 3]],
@@ -210,9 +232,67 @@ describe('deriveOffice', () => {
     );
   });
 
+  test('a named room splits into session pods, pinned first, then natural order', () => {
+    const rooms = deriveOffice(
+      [
+        char(1, { tmux: pane('emperor-10') }),
+        char(2, { tmux: pane('emperor-8') }),
+        char(3, { tmux: pane('emperor-2', '@2') }),
+        char(4, { tmux: pane('emperor-2', '@1') }),
+      ],
+      {},
+      {},
+      cfg([{ name: 'emperor', patterns: ['emperor-*'] }], ['emperor-8']),
+    );
+    assert.deepEqual(
+      rooms[0].pods.map((p) => [p.id, p.pinned, p.desks.map((d) => d.agentId)]),
+      [
+        ['emperor-8', true, [2]],
+        ['emperor-2', false, [4, 3]],
+        ['emperor-10', false, [1]],
+      ],
+    );
+  });
+
+  test('agents without a pane share one pod, last in the background', () => {
+    const rooms = deriveOffice(
+      [char(3), char(2, { tmux: pane('scratch') }), char(1)],
+      {},
+      {},
+      cfg([{ name: 'emperor', patterns: ['emperor-*'] }]),
+    );
+    assert.deepEqual(
+      rooms[rooms.length - 1].pods.map((p) => [p.id, p.desks.map((d) => d.agentId)]),
+      [
+        ['scratch', [2]],
+        [NO_PANE_POD_ID, [1, 3]],
+      ],
+    );
+  });
+
+  test('pins work without named rooms, keep room order, and never pin the no-pane pod', () => {
+    const chars = [
+      char(1, { tmux: pane('emperor-8') }),
+      char(2, { tmux: pane('emperor-1') }),
+      char(3),
+    ];
+    const pinsOf = (pinned: string[]) =>
+      deriveOffice(chars, {}, {}, cfg([], pinned)).map((r) => [r.id, r.pods.map((p) => p.pinned)]);
+    assert.deepEqual(pinsOf(['emperor-8']), [
+      ['emperor-1', [false]],
+      ['emperor-8', [true]],
+      [BACKGROUND_ROOM_ID, [false]],
+    ]);
+    assert.deepEqual(pinsOf(['*']), [
+      ['emperor-1', [true]],
+      ['emperor-8', [true]],
+      [BACKGROUND_ROOM_ID, [false]],
+    ]);
+  });
+
   test('names fall back from registry name to folder to agent id', () => {
     const chars = [char(1, { sessionName: 'reg' }), char(2, { folderName: 'repo' }), char(3)];
-    const desks = deriveOffice(chars, {})[0].desks;
+    const desks = roomDesks(deriveOffice(chars, {})[0]);
     assert.deepEqual(
       desks.map((d) => d.name),
       ['reg', 'repo', 'Agent 3'],
@@ -228,8 +308,8 @@ describe('deriveOffice', () => {
     ];
     const rooms = deriveOffice(chars, {});
     assert.equal(rooms.length, 1);
-    assert.equal(rooms[0].desks.length, 1);
-    assert.deepEqual(rooms[0].desks[0].helpers, [
+    assert.equal(roomDesks(rooms[0]).length, 1);
+    assert.deepEqual(roomDesks(rooms[0])[0].helpers, [
       { agentId: -1, status: 'working', tool: 'Read' },
       { agentId: -2, status: 'needs-permission', tool: null },
     ]);
@@ -254,7 +334,7 @@ describe('deriveOffice', () => {
       ],
       2: [{ toolId: 'c', status: 'Reading README.md', done: true }],
     };
-    const desks = deriveOffice(chars, {}, tools)[0].desks;
+    const desks = roomDesks(deriveOffice(chars, {}, tools)[0]);
     assert.deepEqual(
       desks.map((d) => d.tool),
       ['Editing model.ts', 'Reading README.md', 'Bash', null],
@@ -272,7 +352,7 @@ describe('deriveOffice', () => {
       2: [{ toolId: 'b', status: 'Waiting for your answer', done: true, question: true }],
       3: [{ toolId: 'c', status: 'Waiting for your answer', done: false, question: true }],
     };
-    const desks = deriveOffice(chars, {}, tools)[0].desks;
+    const desks = roomDesks(deriveOffice(chars, {}, tools)[0]);
     assert.deepEqual(
       desks.map((d) => d.status),
       ['waiting-input', 'working', 'needs-permission'],
@@ -285,7 +365,7 @@ describe('deriveOffice', () => {
       char(2, { contextTokens: 300, maxContextTokens: 200 }),
       char(3, { contextTokens: 300, maxContextTokens: 0 }),
     ];
-    const desks = deriveOffice(chars, {})[0].desks;
+    const desks = roomDesks(deriveOffice(chars, {})[0]);
     assert.deepEqual(
       desks.map((d) => d.contextRatio),
       [0.25, 1, 0],

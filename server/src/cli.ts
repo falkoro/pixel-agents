@@ -10,7 +10,7 @@
 
 import * as path from 'path';
 
-import { parseRoomConfig } from '../../core/src/roomPatterns.js';
+import { parseGlobs, parseRoomConfig } from '../../core/src/roomPatterns.js';
 import { type AccessVerifier, createAccessVerifier, type JwksDocument } from './accessJwt.js';
 import { AgentRuntime } from './agentRuntime.js';
 import { AgentStateStore } from './agentStateStore.js';
@@ -262,12 +262,14 @@ async function main(): Promise<void> {
       );
     }
     const rooms = parseRoomConfig(process.env.PIXEL_AGENTS_OFFICE_ROOMS);
-    if (rooms.length > 0) {
-      runtime.officeRooms = { type: 'officeRooms', rooms };
+    const pinned = parseGlobs(process.env.PIXEL_AGENTS_OFFICE_PINNED);
+    if (rooms.length > 0 || pinned.length > 0) {
+      runtime.officeRooms = { type: 'officeRooms', rooms, pinned };
       console.log(
-        `[Pixel Agents] Office rooms: ${rooms
-          .map((room) => `${room.name} (${room.patterns.join(', ')})`)
-          .join('; ')}`,
+        `[Pixel Agents] Office rooms: ${
+          rooms.map((room) => `${room.name} (${room.patterns.join(', ')})`).join('; ') ||
+          'one per session'
+        }; pinned: ${pinned.join(', ') || 'none'}`,
       );
     }
 

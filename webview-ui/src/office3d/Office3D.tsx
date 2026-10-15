@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { OfficeRooms } from '../../../core/src/messages.js';
-import { OFFICE3D_PINNED_ROOMS, OFFICE3D_POLL_MS, OFFICE3D_STATUS_COLORS } from '../constants.js';
+import { OFFICE3D_POLL_MS, OFFICE3D_STATUS_COLORS } from '../constants.js';
 import type { AgentTerminalMeta } from '../hooks/useExtensionMessages.js';
 import type { OfficeState } from '../office/engine/officeState.js';
 import type { ToolActivity } from '../office/types.js';
@@ -68,12 +68,7 @@ export default function Office3D(props: Office3DProps) {
     function poll(): void {
       if (document.hidden) return;
       const { officeState: os, agentTerminals, agentTools, officeRooms } = latest.current;
-      const next = deriveOffice(
-        os.characters.values(),
-        agentTerminals,
-        agentTools,
-        officeRooms?.rooms ?? null,
-      );
+      const next = deriveOffice(os.characters.values(), agentTerminals, agentTools, officeRooms);
       const looks = new Map<number, Look>();
       for (const ch of os.characters.values()) {
         looks.set(ch.id, { palette: ch.palette, hueShift: ch.hueShift });
@@ -112,7 +107,7 @@ export default function Office3D(props: Office3DProps) {
             className="o3d-bar-btn"
             aria-pressed={focused === room.id}
             data-heat={roomHeat(room) ?? 'calm'}
-            data-pinned={OFFICE3D_PINNED_ROOMS.includes(room.id) || undefined}
+            data-pinned={room.pods.some((pod) => pod.pinned) || undefined}
             onClick={() => sceneRef.current?.focusRoom(room.id)}
           >
             {room.title}

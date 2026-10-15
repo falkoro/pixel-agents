@@ -19,7 +19,8 @@
   Waiting-input gets a violet "?" badge, ring and room heat. Needs-permission gets an amber beam rising
   5 m above the room (the one cue that survives every zoom), a pulsing ring, a "!" badge, a filled label
   and a hot room floor, edge and label.
-- **Find emperor-8 fast.** `OFFICE3D_PINNED_ROOMS` gives that room an accent label with a diamond.
+- **Find emperor-8 fast.** `PIXEL_AGENTS_OFFICE_PINNED=emperor-8` (globs) pins sessions. A pinned
+  session's pod comes first in its room, and the room gets an accent label with a diamond.
   - The room bar at the top lists every room; a button or a room label glides the camera there.
   - The `#room` hash focuses a room on load and follows back/forward.
 - **Labels are DOM, not textures.** `CSS2DRenderer` keeps names crisp at any DPR and makes them real
