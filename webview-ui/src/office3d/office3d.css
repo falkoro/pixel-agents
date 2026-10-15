@@ -125,10 +125,9 @@
 
 .o3d-desk-name {
   min-inline-size: 0;
-  overflow: hidden;
   font-weight: 700;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .o3d-desk-crew {
@@ -151,14 +150,6 @@
 }
 .o3d-labels[data-density='compact'] .o3d-desk-status {
   display: none;
-}
-.o3d-labels[data-density='compact'] .o3d-desk-name {
-  display: -webkit-box;
-  white-space: normal;
-  overflow-wrap: break-word;
-  text-align: center;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 .o3d-labels[data-density='roster'] .o3d-desk {
   display: none;
@@ -239,9 +230,7 @@
 
 .o3d-roster-name {
   min-inline-size: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 /* ── Room labels ───────────────────────────────────────────── */
