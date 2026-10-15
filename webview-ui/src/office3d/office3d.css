@@ -52,6 +52,7 @@
 .o3d-desk *,
 .o3d-chip,
 .o3d-pod,
+.o3d-pod *,
 .o3d-badge {
   font-family: var(--o3d-sans);
 }
@@ -203,6 +204,7 @@
 /* ── Status badges over the characters ─────────────────────── */
 .o3d-badge {
   --o3d-status: var(--o3d-idle);
+  z-index: 2147483001 !important;
   display: grid;
   place-items: center;
   min-inline-size: 1.5em;
@@ -247,11 +249,17 @@
 }
 
 /* ── Pod signs ─────────────────────────────────────────────── */
+/* A pod is one tmux session, so its sign is the pod's headline: above the desk
+   labels on screen, below only the alert badges. CSS2DRenderer writes z-index inline. */
 .o3d-pod {
-  padding: 1px 7px 2px;
-  font-size: clamp(11px, calc(var(--o3d-ppm) * 0.2px), 15px);
+  z-index: 2147483000 !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2px 10px 3px;
+  font-size: clamp(16px, calc(var(--o3d-ppm) * 0.42px), 26px);
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.1;
   white-space: nowrap;
   color: var(--color-text);
   background: var(--color-bg);
@@ -271,10 +279,20 @@
 .o3d-pod[data-heat='needs-permission'] {
   border-color: var(--o3d-needs-permission);
 }
+.o3d-pod-kind {
+  font-size: 0.55em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
 .o3d-labels[data-density='roster'] .o3d-pod {
   padding: 0 4px;
   font-size: 11px;
   border-width: 1px;
+}
+.o3d-labels[data-density='roster'] .o3d-pod-kind {
+  display: none;
 }
 
 /* ── Room roster (desks too small for their own labels) ───── */
@@ -391,7 +409,7 @@
   max-inline-size: 100%;
 }
 .o3d-room[data-pinned='true'] .o3d-room-title::before,
-.o3d-pod[data-pinned='true']::before,
+.o3d-pod[data-pinned='true'] .o3d-pod-name::before,
 .o3d-bar-btn[data-pinned='true']::before {
   content: '';
   display: inline-block;

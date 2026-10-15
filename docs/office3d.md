@@ -6,7 +6,7 @@ The 3D office answers two questions at a glance: what is each session doing, and
 
 - `deriveOffice` turns the live `OfficeState` characters into rooms of pods of desks with helpers. It is pure and covered by vitest.
 - `PIXEL_AGENTS_OFFICE_ROOMS` names the rooms. Entries are separated by `;`. `name=glob` puts every matching tmux session in that room, and globs are separated by commas or spaces. `emperor=emperor-*` puts every `emperor-*` session in one room named emperor. An entry without `=` is one room named after that text. A configured room stays even with nobody in it. Without the setting every session is a room.
-- A pod is one tmux session. It stands on its own rug with a sign that names it.
+- A pod is one tmux session. It stands on its own rug with a sign that names it. The sign reads "SESSION" over the session name and draws above every desk label, so the session is what you read first. Only alert badges draw above it.
 - `PIXEL_AGENTS_OFFICE_PINNED=emperor-8` pins sessions. A pinned pod sits alone in the front row of its room, centred. It gets a red rug, brass posts with a rope, and a diamond on its sign.
 - The Background is a porch behind the rooms, as wide as them. It has smaller desks, a railing and fairy lights. Agents without tmux work there.
 - `PIXEL_AGENTS_OFFICE_BACKGROUND=hide` drops the Background, so only agents in a room are shown.

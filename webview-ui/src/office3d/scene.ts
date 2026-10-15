@@ -477,6 +477,7 @@ class DeskView {
 interface PodSign {
   obj: CSS2DObject;
   el: HTMLButtonElement;
+  name: HTMLSpanElement;
 }
 
 /** A room's labels: its title and counts, its pod signs, and the name list for far zooms. */
@@ -574,18 +575,20 @@ class RoomView {
       if (!sign) {
         const node = el('button', 'o3d-pod');
         node.type = 'button';
+        el('span', 'o3d-pod-kind', node).textContent = 'session';
+        const name = el('span', 'o3d-pod-name', node);
         node.addEventListener('click', (e) => {
           e.stopPropagation();
           this.ctx.focus(pod.id);
         });
-        sign = { obj: new CSS2DObject(node), el: node };
+        sign = { obj: new CSS2DObject(node), el: node, name };
         // Hangs from the rug's front edge, clear of the desk labels above it.
         sign.obj.center.set(0.5, 0);
         this.signs.set(pod.id, sign);
         this.group.add(sign.obj);
       }
       sign.obj.visible = !alone;
-      setText(sign.el, pod.title);
+      setText(sign.name, pod.title);
       sign.el.title = `Focus ${pod.title}`;
       sign.el.dataset.pinned = String(pod.pinned);
       sign.el.dataset.heat = podHeat(pod);
