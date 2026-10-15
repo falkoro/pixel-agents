@@ -1,73 +1,72 @@
 # 3D office
 
-## Design choices
+The 3D office answers two questions at a glance: what is each session doing, and does any of them need me.
 
-- **Model first, pure.** `deriveOffice` turns the live `OfficeState` characters into rooms (one per tmux
-  session, natural order, Background last) of desks with helpers. Status comes from one first-match table.
-  `planOffice` is a pure function of room shapes and viewport aspect. Both are covered by vitest.
-- **Rooms are configurable.** `PIXEL_AGENTS_OFFICE_ROOMS` names the rooms. Entries are separated by
-  `;`. `name=glob` puts every matching tmux session in that room. Globs are separated by commas or
-  spaces. `emperor=emperor-*` is one room named emperor. An entry without `=` is one room whose name is
-  that text. The server sends `officeRooms` after the webview is ready, and a configured room stays even
-  with nobody in it. Every other agent, and any agent without tmux, works at a smaller desk in the
-  Background strip behind the rooms; clicking it still opens its terminal. On a wide screen its name list
-  wraps across the strip. Without the setting every session is a room.
-  `PIXEL_AGENTS_OFFICE_BACKGROUND=hide` drops the Background, so only agents in a room are shown.
-- **Running sessions only.** `--live-only` keeps a top-level agent only while that Claude process is in
-  the session registry, and removes it when the process exits. Each registry tick reads `tmux list-panes`
-  once and follows a pane by id, so a window moved into another session is shown in that session.
-- **Feeding the scene.** `OfficeState` is mutated in place and never re-renders React, so `Office3D` polls
-  it every 250 ms and pushes a snapshot only when a JSON signature changes. The scene never reads React state.
-- **Status reads from the overview without hovering.** Each status has a colour and a shape. Working
-  types at a lit screen in calm blue; done shows a green check; idle has a dim screen and a grey label.
-  Waiting-input gets a violet "?" badge, ring and room heat. Needs-permission gets an amber beam rising
-  5 m above the room (the one cue that survives every zoom), a pulsing ring, a "!" badge, a filled label
-  and a hot room floor, edge and label.
-- **Find emperor-8 fast.** `PIXEL_AGENTS_OFFICE_PINNED=emperor-8` (globs) pins sessions. A pinned
-  session's pod comes first in its room, and the room gets an accent label with a diamond.
-  - The room bar at the top lists every room; a button or a room label glides the camera there.
-  - The `#room` hash focuses a room on load and follows back/forward.
-- **Labels are DOM, not textures.** `CSS2DRenderer` keeps names crisp at any DPR and makes them real
-  buttons with focus rings. Density follows measured pixels per metre: full (name and activity), compact
-  (name only), or roster, a per-room name list at the room front that keeps the phone view readable.
-  Narrow viewports get extra front floor for that list and a steeper camera.
-- **The monitor face** is a `CanvasTexture` painted by `paintScreen(canvas, lines, accent, lit)`; the lines
-  are status and activity today, and live pane text can be fed through the same call.
-- **Look:** standard PBR materials, a `RoomEnvironment` through PMREM, a key light with 2048 PCF shadows
-  (radius 5), ACES tone mapping and sRGB output. Figures, desks, chairs and plants are built from three
-  primitives; shirts follow the agent palette and hue shift. The dark pixel chrome is kept for the bar and
-  labels, and the desk labels use a sans face for legibility.
-- **Frame budget:**
-  - Render on demand: continuous frames only while the camera moves or tweens; 30 fps timers while
-    something animates; nothing otherwise.
-  - DPR is capped at 2, rendering pauses on `visibilitychange`, and every geometry, material, texture,
-    target and listener is disposed on unmount.
-- **Clicks mirror the 2D view:** dismiss the bubble, toggle selection, then call `App.handleClick`, so the
-  `TerminalPanel` opens the same way and sub-agents route to their parent. Only a drag past 6 px or a wheel
-  counts as steering; a click must not freeze the auto-fit.
+## Model and layout
+
+- `deriveOffice` turns the live `OfficeState` characters into rooms of pods of desks with helpers. It is pure and covered by vitest.
+- `PIXEL_AGENTS_OFFICE_ROOMS` names the rooms. Entries are separated by `;`. `name=glob` puts every matching tmux session in that room, and globs are separated by commas or spaces. `emperor=emperor-*` puts every `emperor-*` session in one room named emperor. An entry without `=` is one room named after that text. A configured room stays even with nobody in it. Without the setting every session is a room.
+- A pod is one tmux session. It stands on its own rug with a sign that names it.
+- `PIXEL_AGENTS_OFFICE_PINNED=emperor-8` pins sessions. A pinned pod sits alone in the front row of its room, centred. It gets a red rug, brass posts with a rope, and a diamond on its sign.
+- The Background is a porch behind the rooms, as wide as them. It has smaller desks, a railing and fairy lights. Agents without tmux work there.
+- `PIXEL_AGENTS_OFFICE_BACKGROUND=hide` drops the Background, so only agents in a room are shown.
+- `--live-only` keeps a top-level agent only while its Claude process is in the session registry. Each registry tick reads `tmux list-panes` once and follows a pane by id, so a window moved into another session shows up in that session.
+- `planOffice` is a pure function of the rooms and the viewport aspect. It packs each room's pods into rows and tries several room shapes and column counts. It keeps the plan that fills the most of the viewport.
+- `Office3D` polls `OfficeState` every 250 ms and pushes a snapshot only when its JSON signature changes. The scene never reads React state.
+
+## Characters
+
+- `characters.ts` is a self-contained kit. It imports only three and holds its own palette.
+- There are nine kinds: robot, cat, astronaut, wizard, chef, dog, penguin, frog and knight. Each is one skinned mesh on ten bones, so each costs one draw call.
+- A desk's default kind comes from a hash of its name. The colourway also comes from the name.
+- Each desk label has a picker. The choice is stored in localStorage under `pixel-agents.office3d.character:<name>`. Every storage access is wrapped in try/catch, so blocked storage falls back to the default.
+- The picker holds one option until it is opened. That keeps seventeen labels light.
+- Helpers are mini versions of their parent's kind. They stand beside the desk.
+
+## Status
+
+- Working: the character types at a lit monitor in calm blue.
+- Needs-permission: the character stands and raises a hand. An amber beam rises above it, a ring pulses and a "!" badge bobs.
+- Waiting-input: a violet "?" badge sways, a violet ring glows and the room label heats up.
+- Done: one short cheer with confetti, then a relaxed pose and a green check.
+- Idle: the character dozes behind a drifting "z".
+- Each kind has its own idle fidget. Fidgets are spaced out, so a calm office spends most of its time still.
+- `prefers-reduced-motion` holds every pose still, skips confetti and stops the badge animations.
+
+## Labels and navigation
+
+- Labels are DOM through `CSS2DRenderer`. They stay crisp at any pixel ratio and are real buttons.
+- Density follows the desk pitch on screen. Full shows name, activity and picker. Compact shows the name. Roster replaces desk labels with a per-room name list.
+- On a phone the roster has two columns in floor that `planOffice` reserves in front of the pods.
+- The room bar lists the rooms. When one room is focused, or there is only one, it also lists that room's pods.
+- `#emperor` focuses the room. `#emperor-8` focuses the pod. The hash follows back and forward.
+- A click picks the nearest desk or helper with a ray against boxes. It dismisses the bubble, toggles selection and calls `App.handleClick`, so the terminal panel opens as in the 2D view. Sub-agents route to their parent.
+- A drag past 6 px or a wheel counts as steering. A click does not freeze the auto-fit.
+
+## Frame budget
+
+- Furniture is merged per material into three draw calls. Status effects are instanced meshes. The demo office draws in about 28 calls.
+- The shadow map renders only when the furniture is rebuilt or the key light moves.
+- Frames run on requestAnimationFrame while something moves. When everything is still the loop stops and a timer wakes it for the next fidget.
+- Rendering pauses on `visibilitychange`.
+- The CSS2D pass runs only when a label changed or the camera moved.
+- The pixel ratio adapts to frame time between 1 and the device ratio, capped at 2.
+- `?stats` shows fps, draw calls, triangles and the pixel ratio.
+- Per-frame work reuses scratch objects. Unmount disposes every geometry, material, texture, target and listener.
 
 ## Tried and dropped
 
-- A "dots" density: unreadable at phone size, so it became the per-room roster.
-- A full-height permission beam: it hid the figure it marks. The beam now fades out around head height.
-- 10 px pixel-font desk labels: too small; the global pixel font is overridden for the 3D labels.
-- Phone polar 0.6: rooms overlapped their own lists. 0.5 together with the roster floor works.
-- A left-aligned last row of rooms: centred reads as deliberate.
-- OrbitControls `start` as the "user moved" signal: it fires on every click and froze the auto-fit.
+- Rotate and scale badge animations. CSS2DRenderer owns `transform`, and the separate properties act on its translation, so badges flew off. Badges now move with `translate` only.
+- Pod signs inside the rug: they covered the second line of compact names. Signs now hang from the rug's front edge.
+- A room label above the back wall: it covered the porch desks. It now hangs on the wall.
+- A single-column phone roster: it covered the pinned pod.
+- A depth foreshortening of 0.9 in the planner: it overestimated screen depth and laid rooms out in one wide, shallow row.
 
 ## Known weaknesses
 
-- Every room is sized for the largest one, so a one-desk room wastes floor next to a four-desk room.
-- The 2D game loop does not run under 3D, so despawned characters stay in `OfficeState` (they are
-  hidden). A done or waiting bubble stays until the desk is clicked or the agent resumes; that is
-  deliberate for "needs the owner", but it differs from the 2-second fade in the pixel view.
+- Compact labels clamp long names to two lines, so `firstmate-goldmary-e9` reads as "firstmate -...".
+- On a phone the porch name list covers the porch desks.
+- A "?" badge on a back-row desk can overlap the label of the desk in front.
+- The 2D game loop does not run under 3D. A done or waiting bubble stays until the desk is clicked or the agent resumes.
 - The layout editor and the first-run tour fall back to the pixel view.
-- Geometry dimensions are inline in `assets.ts` rather than in `constants.ts`.
-- In the overview the "!" badge can sit under its room label; the beam above the room compensates.
-- On phones a roster name longer than the room plus half the gap is ellipsised.
-- On phones a room title with two status counts wraps to two lines and can cover the last name of the list
-  behind it.
-- The Office3D chunk is about 600 kB (lazy-loaded) and trips Vite's chunk-size warning.
-- Frame rates were only seen under SwiftShader, so real-GPU performance is not measured.
-- A viewer holding the server token gets the first-run tour, which shows the pixel view, and its game loop
-  fades a done bubble in 2 seconds. Viewers behind Access never get the tour.
+- Frame rates were only measured under SwiftShader. Real-GPU performance is not measured.
