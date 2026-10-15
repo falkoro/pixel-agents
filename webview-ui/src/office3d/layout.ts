@@ -1,4 +1,5 @@
 import {
+  OFFICE3D_BACKGROUND_ROSTER_PER_LINE,
   OFFICE3D_BACKGROUND_SCALE,
   OFFICE3D_DEPTH_FORESHORTEN,
   OFFICE3D_DESK_PITCH_X,
@@ -97,7 +98,8 @@ export function planOffice(rooms: RoomModel[], aspect: number): OfficePlan {
       OFFICE3D_ROOM_PAD_BACK +
       Math.ceil(bgCount / perRow) * OFFICE3D_DESK_PITCH_Z * OFFICE3D_BACKGROUND_SCALE +
       OFFICE3D_ROOM_PAD_FRONT +
-      (narrow ? bgCount * OFFICE3D_ROSTER_LINE_DEPTH : 0);
+      Math.ceil(bgCount / (narrow ? 1 : OFFICE3D_BACKGROUND_ROSTER_PER_LINE)) *
+        OFFICE3D_ROSTER_LINE_DEPTH;
     return { width, depth, perRow, extra: depth + (grid.length > 0 ? OFFICE3D_ROOM_GAP : 0) };
   };
 

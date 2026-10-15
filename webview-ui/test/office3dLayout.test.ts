@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import { describe, test } from 'vitest';
 
+import { OFFICE3D_ROSTER_LINE_DEPTH } from '../src/constants.js';
 import type { OfficePlan } from '../src/office3d/layout.js';
 import { planOffice } from '../src/office3d/layout.js';
 import type { DeskModel, RoomModel } from '../src/office3d/model.js';
@@ -148,6 +149,15 @@ describe('planOffice', () => {
         assert.ok(Math.abs(d.z - strip.z) < strip.depth / 2, 'desk z outside the strip');
       }
     }
+  });
+
+  test('the background strip deepens for its wrapped name list', () => {
+    const frontFloor = (count: number) => {
+      const plan = planOffice([...rooms(4), room(BACKGROUND_ROOM_ID, count)], 16 / 9);
+      const strip = plan.rooms[plan.rooms.length - 1];
+      return strip.z + strip.depth / 2 - Math.max(...strip.desks.map((d) => d.z));
+    };
+    assert.ok(frontFloor(11) - frontFloor(1) > OFFICE3D_ROSTER_LINE_DEPTH / 2);
   });
 
   test('a narrow viewport adds front floor for the background name list', () => {

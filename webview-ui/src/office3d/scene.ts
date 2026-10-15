@@ -73,7 +73,7 @@ import {
 import type { DeskSpot, OfficePlan, RoomSpot } from './layout.js';
 import { planOffice } from './layout.js';
 import type { DeskModel, DeskStatus, HelperModel, RoomModel } from './model.js';
-import { roomHeat, STATUS_TEXT } from './model.js';
+import { BACKGROUND_ROOM_ID, roomHeat, STATUS_TEXT } from './model.js';
 import { paintScreen } from './screen.js';
 
 export interface OfficeSnapshot {
@@ -496,6 +496,7 @@ class RoomView {
     // When desks are too small on screen for their own labels, the room lists
     // its agents instead: one readable line each, still clickable.
     this.rosterEl = el('div', 'o3d-roster');
+    if (id === BACKGROUND_ROOM_ID) this.rosterEl.dataset.background = 'true';
     this.roster = new CSS2DObject(this.rosterEl);
     this.roster.center.set(0.5, 1);
     this.group.add(this.label, this.roster);
