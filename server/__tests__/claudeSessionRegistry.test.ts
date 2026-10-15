@@ -201,7 +201,7 @@ describe('live session adoption', () => {
     runtime = new AgentRuntime(store, claudeProvider);
     if (watch === 'tracked') runtime.startProjectScan(projectDir);
     if (watch === 'all') runtime.forceWatchAll = true;
-    runtime.startLiveSessionRegistry(new ClaudeSessionRegistry({ homeDir: root }));
+    runtime.startLiveSessionRegistry(new ClaudeSessionRegistry({ homeDir: root }), async () => null);
     return store;
   }
 

@@ -111,7 +111,7 @@ start_rig() {
   (HOME="$dir/home" PIXEL_AGENTS_TMUX_SOCKET="$sock" \
     PIXEL_AGENTS_OFFICE_ROOMS="${PIXEL_AGENTS_OFFICE_ROOMS-emperor=emperor-*}" \
     PIXEL_AGENTS_OFFICE_PINNED="${PIXEL_AGENTS_OFFICE_PINNED-emperor-8}" nohup node "$root/dist/cli.js" \
-    --port "$port" --host 127.0.0.1 --watch-all --insecure-local-terminal > "$dir/server.log" 2>&1 &
+    --port "$port" --host 127.0.0.1 --watch-all --live-only --insecure-local-terminal > "$dir/server.log" 2>&1 &
     echo $! > "$dir/server.pid")
   for _ in $(seq 1 40); do
     grep -q "http://127.0.0.1:$port/?token=" "$dir/server.log" 2>/dev/null && break

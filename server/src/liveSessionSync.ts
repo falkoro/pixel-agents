@@ -1,6 +1,6 @@
 import type { AgentStateStore } from './agentStateStore.js';
 import type {
-  ClaudeSessionRegistry,
+  LiveClaudeSession,
   TmuxLocation,
 } from './providers/hook/claude/claudeSessionRegistry.js';
 import type { AgentState } from './types.js';
@@ -41,13 +41,13 @@ export function agentTerminalMap(store: AgentStateStore): Record<string, AgentTe
 }
 
 /**
- * Copy registry tmux/name onto agents that share a session id. Broadcasts
+ * Copy live tmux/name onto agents that share a session id. Broadcasts
  * `agentTerminal` only when the location or name changed. A session that
  * left the registry clears the location so the panel closes.
  */
 export function syncLiveSessionMetadata(
   store: AgentStateStore,
-  registry: ClaudeSessionRegistry,
+  registry: { get(sessionId: string): LiveClaudeSession | undefined },
 ): void {
   for (const [id, agent] of store) {
     if (!agent.sessionId) continue;

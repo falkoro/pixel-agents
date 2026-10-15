@@ -42,6 +42,8 @@ export interface CliArgs {
   host: string;
   /** Force Watch All Sessions for this process, ignoring the persisted checkbox. */
   watchAll: boolean;
+  /** Track a top-level agent only while its Claude process is in the session registry. */
+  liveOnly: boolean;
   /** Dev/test only. Opens /ws/term without Cloudflare Access. */
   insecureLocalTerminal: boolean;
 }
@@ -52,7 +54,12 @@ export interface CliArgs {
 export class CliArgsError extends Error {}
 
 export function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { host: '127.0.0.1', watchAll: false, insecureLocalTerminal: false };
+  const args: CliArgs = {
+    host: '127.0.0.1',
+    watchAll: false,
+    liveOnly: false,
+    insecureLocalTerminal: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--port' || argv[i] === '-p') {
       const raw = argv[i + 1];
@@ -74,6 +81,8 @@ export function parseArgs(argv: string[]): CliArgs {
       i++;
     } else if (argv[i] === '--watch-all') {
       args.watchAll = true;
+    } else if (argv[i] === '--live-only') {
+      args.liveOnly = true;
     } else if (argv[i] === '--insecure-local-terminal') {
       args.insecureLocalTerminal = true;
     } else if (argv[i] === '--help') {
@@ -83,6 +92,7 @@ Options:
   --port, -p <number>       Port to listen on (default: OS-assigned ephemeral port)
   --host <string>           Host to bind to (default: 127.0.0.1)
   --watch-all               Watch every Claude session, not only this workspace
+  --live-only               Track only Claude sessions with a running process
   --insecure-local-terminal Allow /ws/term without Cloudflare Access (dev/tests only)
   --help                    Show this help message`);
       process.exit(0);
@@ -254,6 +264,7 @@ async function main(): Promise<void> {
     // Latch --watch-all before listen so the first webviewReady cannot reset
     // it from the persisted checkbox.
     runtime.forceWatchAll = args.watchAll;
+    runtime.liveOnly.current = args.liveOnly;
     runtime.watchAllSessions.current =
       args.watchAll || adapter.getSetting('pixel-agents.watchAllSessions', false);
     if (args.insecureLocalTerminal) {

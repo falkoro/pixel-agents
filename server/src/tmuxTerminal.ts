@@ -133,6 +133,56 @@ export async function readPaneClientSize(
   }
 }
 
+/** One pane from `tmux list-panes -a`. Session may still be unsafe. */
+export interface TmuxPaneRecord {
+  paneId: string;
+  session: string;
+  windowId: string;
+}
+
+/** Argv for the read-only pane listing. Socket flags match the rest of the server. */
+export function listTmuxPanesArgv(): string[] {
+  return [...tmuxSocketArgs(), 'list-panes', '-a', '-F', '#{pane_id} #{session_name} #{window_id}'];
+}
+
+/**
+ * Parse `list-panes` output. The session name is whatever sits between the
+ * pane id and the window id, so a name with spaces survives for the safety check.
+ */
+export function parseTmuxPaneList(stdout: string): TmuxPaneRecord[] {
+  const panes: TmuxPaneRecord[] = [];
+  for (const line of stdout.split('\n')) {
+    if (!line) {
+      continue;
+    }
+    const parts = line.split(' ');
+    if (parts.length < 3) {
+      continue;
+    }
+    const paneId = parts[0] ?? '';
+    const windowId = parts[parts.length - 1] ?? '';
+    const session = parts.slice(1, -1).join(' ');
+    if (!paneId || !session || !windowId) {
+      continue;
+    }
+    panes.push({ paneId, session, windowId });
+  }
+  return panes;
+}
+
+/**
+ * Every pane on the tmux server, or null when tmux could not be asked.
+ * Read-only. An empty array is a successful listing with no panes.
+ */
+export async function listTmuxPanes(): Promise<TmuxPaneRecord[] | null> {
+  try {
+    const { stdout } = await execFileAsync('tmux', listTmuxPanesArgv(), { timeout: 2000 });
+    return parseTmuxPaneList(stdout);
+  } catch {
+    return null;
+  }
+}
+
 export async function killThrowawaySession(sessionName: string): Promise<void> {
   if (!sessionName.startsWith('pa-web-')) return;
   try {

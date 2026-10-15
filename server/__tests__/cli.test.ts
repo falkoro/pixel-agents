@@ -120,9 +120,10 @@ describe('parseArgs', () => {
     expect(parseArgs(['--host', '0.0.0.0']).host).toBe('0.0.0.0');
   });
 
-  it('defaults the watch-all and insecure-terminal flags off', () => {
+  it('defaults the watch-all, live-only, and insecure-terminal flags off', () => {
     const args = parseArgs([]);
     expect(args.watchAll).toBe(false);
+    expect(args.liveOnly).toBe(false);
     expect(args.insecureLocalTerminal).toBe(false);
   });
 
@@ -130,6 +131,10 @@ describe('parseArgs', () => {
     const args = parseArgs(['--watch-all', '--insecure-local-terminal']);
     expect(args.watchAll).toBe(true);
     expect(args.insecureLocalTerminal).toBe(true);
+  });
+
+  it('parses --live-only', () => {
+    expect(parseArgs(['--live-only']).liveOnly).toBe(true);
   });
 });
 
