@@ -29,6 +29,7 @@ import {
 } from './configPersistence.js';
 import { MAX_PORT, MIN_PORT } from './constants.js';
 import { FileStateAdapter } from './fileStateAdapter.js';
+import { OfficeFeedState } from './officeFeed.js';
 import { ClaudeSessionRegistry } from './providers/hook/claude/claudeSessionRegistry.js';
 import { claudeProvider, copyHookScript, hookProviderById } from './providers/index.js';
 import { PixelAgentsServer } from './server.js';
@@ -171,6 +172,7 @@ async function main(): Promise<void> {
   const store = new AgentStateStore();
   const adapter = new FileStateAdapter({ namespace: 'standalone' });
   store.setAdapter(adapter);
+  const officeFeed = new OfficeFeedState(store, claudeProvider);
 
   // ── Create server ──
   const server = new PixelAgentsServer();
@@ -299,6 +301,10 @@ async function main(): Promise<void> {
       insecureLocalTerminal: args.insecureLocalTerminal,
       access: accessVerifierFromEnv(),
       sessionRegistry,
+      officeFeed,
+      officeEmbedOrigins: (process.env.PIXEL_AGENTS_OFFICE_EMBED_ORIGINS ?? '')
+        .split(/[\s,]+/)
+        .filter(Boolean),
     });
     currentConfig = { port: config.port, token: config.token };
 

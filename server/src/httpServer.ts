@@ -21,6 +21,7 @@ import {
   WS_CLOSE_UNAUTHORIZED,
 } from './constants.js';
 import { agentCreatedTerminalFields } from './liveSessionSync.js';
+import type { OfficeFeedState } from './officeFeed.js';
 import type { ClaudeSessionRegistry } from './providers/hook/claude/claudeSessionRegistry.js';
 import { type AttachedTerminal, attachTmuxPane } from './tmuxTerminal.js';
 import type { AgentState } from './types.js';
@@ -55,6 +56,10 @@ export interface HttpServerOptions {
   access?: AccessVerifier;
   /** Live Claude sessions. /ws/term resolves an agent through this map. */
   sessionRegistry?: ClaudeSessionRegistry;
+  /** Serves GET /api/office when set. */
+  officeFeed?: OfficeFeedState;
+  /** Browser origins allowed to read /api/office. A request without Origin is always allowed. */
+  officeEmbedOrigins?: readonly string[];
 }
 
 /** Result of createHttpServer(). */
@@ -96,6 +101,7 @@ export async function createHttpServer(options: HttpServerOptions): Promise<Http
 
   registerAccessGate(app, options);
   registerHealthRoute(app);
+  registerOfficeFeedRoute(app, options);
   registerHookRoute(app, options);
   registerWebSocketRoute(app, options);
   registerTerminalRoute(app, options);
@@ -117,6 +123,21 @@ function registerHealthRoute(app: FastifyInstance): void {
     uptime: Math.floor((Date.now() - startTime) / 1000),
     pid: process.pid,
   }));
+}
+
+// ── Office feed ─────────────────────────────────────────────────
+
+function registerOfficeFeedRoute(app: FastifyInstance, options: HttpServerOptions): void {
+  const feed = options.officeFeed;
+  if (!feed) return;
+  const origins = new Set(options.officeEmbedOrigins ?? []);
+  app.get('/api/office', async (request, reply) => {
+    const origin = request.headers.origin;
+    if (origin !== undefined && !origins.has(origin)) {
+      return reply.code(403).send({ error: 'origin not allowed' });
+    }
+    return feed.snapshot(options.runtime?.officeRooms ?? null);
+  });
 }
 
 // ── Hook Events ────────────────────────────────────────────────

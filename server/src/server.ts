@@ -19,6 +19,7 @@ import {
   SERVERS_DIR,
 } from './constants.js';
 import { createHttpServer } from './httpServer.js';
+import type { OfficeFeedState } from './officeFeed.js';
 import type { ClaudeSessionRegistry } from './providers/hook/claude/claudeSessionRegistry.js';
 import type { ServerConfig } from './serverConfig.js';
 import { isServerConfig, isServerTarget } from './serverConfig.js';
@@ -74,6 +75,8 @@ export class PixelAgentsServer {
     insecureLocalTerminal?: boolean;
     access?: AccessVerifier;
     sessionRegistry?: ClaudeSessionRegistry;
+    officeFeed?: OfficeFeedState;
+    officeEmbedOrigins?: readonly string[];
   }): Promise<ServerConfig> {
     const embedded = options?.embedded ?? true;
     const wantsSpa = !embedded;
@@ -114,6 +117,8 @@ export class PixelAgentsServer {
       insecureLocalTerminal: options?.insecureLocalTerminal,
       access: options?.access,
       sessionRegistry: options?.sessionRegistry,
+      officeFeed: options?.officeFeed,
+      officeEmbedOrigins: options?.officeEmbedOrigins,
     });
 
     this.app = app;
