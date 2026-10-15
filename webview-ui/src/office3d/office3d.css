@@ -204,7 +204,7 @@
 /* ── Status badges over the characters ─────────────────────── */
 .o3d-badge {
   --o3d-status: var(--o3d-idle);
-  z-index: 2147483001 !important;
+  z-index: 2147482000 !important;
   display: grid;
   place-items: center;
   min-inline-size: 1.5em;
@@ -249,8 +249,9 @@
 }
 
 /* ── Pod signs ─────────────────────────────────────────────── */
-/* A pod is one tmux session, so its sign is the pod's headline: above the desk
-   labels on screen, below only the alert badges. CSS2DRenderer writes z-index inline. */
+/* A pod is one tmux session, so its sign is the pod's headline and draws above the
+   desk labels and the badges. A standing alert in the row in front reaches into the
+   sign; its desk label still says so in the status colour. CSS2DRenderer writes z-index inline. */
 .o3d-pod {
   z-index: 2147483000 !important;
   display: flex;
