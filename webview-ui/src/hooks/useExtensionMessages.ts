@@ -118,7 +118,7 @@ interface ExtensionMessageState {
   hooksInfoShown: boolean;
   /** Live tmux metadata keyed by agent id. A null tmux closes the terminal panel. */
   agentTerminals: Record<number, AgentTerminalMeta>;
-  /** Configured office rooms; null when the server has no room patterns. */
+  /** Configured office rooms; null when the server has none. */
   officeRooms: OfficeRooms | null;
   /** First-run consent ask (hooksConsentRequest). Non-null while the server waits on an answer; carries the provider
    *  and the server's exact disclosure copy, so the consent step renders the terms being approved with no client

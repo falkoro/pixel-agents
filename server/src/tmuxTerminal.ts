@@ -133,20 +133,6 @@ export async function readPaneClientSize(
   }
 }
 
-/** Session names on the tmux server, or null when tmux could not be asked. */
-export async function listTmuxSessions(): Promise<string[] | null> {
-  try {
-    const { stdout } = await execFileAsync(
-      'tmux',
-      [...tmuxSocketArgs(), 'list-sessions', '-F', '#{session_name}'],
-      { timeout: 2000 },
-    );
-    return stdout.split('\n').filter(Boolean);
-  } catch {
-    return null;
-  }
-}
-
 export async function killThrowawaySession(sessionName: string): Promise<void> {
   if (!sessionName.startsWith('pa-web-')) return;
   try {

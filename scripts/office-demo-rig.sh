@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Demo office for UI work and screenshots: a private tmux server and a throwaway HOME
 # shaped like emperor's live sessions. It never touches the default tmux server or ~/.claude*.
-# Rooms follow PIXEL_AGENTS_OFFICE_ROOMS (default emperor-*; set it empty for one room per session).
+# Rooms follow PIXEL_AGENTS_OFFICE_ROOMS (default emperor=emperor-*; set it empty for one room per session).
 #
 #   scripts/office-demo-rig.sh start [name] [port]   prints the office URL
 #   scripts/office-demo-rig.sh stop  [name]
@@ -108,7 +108,7 @@ start_rig() {
   tmux -L "$sock" new-session -d -s emperor-4 -x 80 -y 24 "exec sleep infinity"
 
   (HOME="$dir/home" PIXEL_AGENTS_TMUX_SOCKET="$sock" \
-    PIXEL_AGENTS_OFFICE_ROOMS="${PIXEL_AGENTS_OFFICE_ROOMS-emperor-*}" nohup node "$root/dist/cli.js" \
+    PIXEL_AGENTS_OFFICE_ROOMS="${PIXEL_AGENTS_OFFICE_ROOMS-emperor=emperor-*}" nohup node "$root/dist/cli.js" \
     --port "$port" --host 127.0.0.1 --watch-all --insecure-local-terminal > "$dir/server.log" 2>&1 &
     echo $! > "$dir/server.pid")
   for _ in $(seq 1 40); do

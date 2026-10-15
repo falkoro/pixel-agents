@@ -328,7 +328,10 @@ describe('clientMessageHandler: areas + carpet wire ordering', () => {
     });
 
     it('replays the office rooms to a new viewer before any agent', () => {
-      const officeRooms = { type: 'officeRooms', patterns: ['emperor-*'], sessions: ['emperor-8'] };
+      const officeRooms = {
+        type: 'officeRooms' as const,
+        rooms: [{ name: 'emperor', patterns: ['emperor-*'] }],
+      };
       const runtime = {
         officeRooms,
         forceWatchAll: false,

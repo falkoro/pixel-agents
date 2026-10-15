@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 import { describe, test } from 'vitest';
 
-import { matchesRoomPattern, parseRoomPatterns } from '../../core/src/roomPatterns.js';
+import { matchesRoomPattern, parseRoomConfig } from '../../core/src/roomPatterns.js';
 import type { Character } from '../src/office/types.js';
 import type { TerminalMeta } from '../src/office3d/model.js';
 import { BACKGROUND_ROOM_ID, deriveOffice, deskStatus, roomHeat } from '../src/office3d/model.js';
@@ -57,7 +57,7 @@ describe('deskStatus', () => {
 });
 
 describe('deriveOffice', () => {
-  test('groups agents into one room per tmux session in natural order', () => {
+  test('no config still gives one room per session in natural order', () => {
     const chars = [
       char(1, { tmux: pane('emperor-10') }),
       char(2, { tmux: pane('emperor-2') }),
@@ -130,33 +130,83 @@ describe('deriveOffice', () => {
     assert.equal(rooms[0].id, BACKGROUND_ROOM_ID);
   });
 
-  test('configured rooms stay when empty and everyone else works in the background', () => {
+  test('one named room collects desks from several matching sessions in session order', () => {
     const chars = [
-      char(1, { tmux: pane('emperor-2') }),
-      char(2, { tmux: pane('scratch', '@4') }),
-      char(3),
-      char(4, { tmux: pane('build') }),
-      char(5, { tmux: pane('scratch', '@1') }),
+      char(1, { tmux: pane('emperor-10', '@1', '%1') }),
+      char(2, { tmux: pane('emperor-2', '@3', '%2') }),
+      char(6, { tmux: pane('emperor-2', '@1', '%1') }),
+      char(3, { tmux: pane('emperor-2', '@1', '%1') }),
+      char(5, { tmux: pane('emperor-2', '@1', '%9') }),
+      char(4, { tmux: pane('emperor-8', '@2', '%1') }),
     ];
-    const config = { patterns: ['emperor-*'], sessions: ['emperor-10', 'emperor-2', 'emperor-8'] };
-    const rooms = deriveOffice(chars, {}, {}, config);
+    const rooms = deriveOffice(chars, {}, {}, [{ name: 'emperor', patterns: ['emperor-*'] }]);
+    assert.deepEqual(
+      rooms.map((r) => [r.id, r.title]),
+      [['emperor', 'emperor']],
+    );
+    assert.deepEqual(
+      rooms[0].desks.map((d) => d.agentId),
+      [3, 6, 5, 2, 4, 1],
+    );
+  });
+
+  test('an empty configured room is still present', () => {
+    const rooms = deriveOffice([char(1, { tmux: pane('emperor-2') })], {}, {}, [
+      { name: 'emperor', patterns: ['emperor-*'] },
+      { name: 'lab', patterns: ['lab-*'] },
+    ]);
     assert.deepEqual(
       rooms.map((r) => [r.id, r.desks.map((d) => d.agentId)]),
       [
-        ['emperor-2', [1]],
-        ['emperor-8', []],
-        ['emperor-10', []],
-        [BACKGROUND_ROOM_ID, [4, 5, 2, 3]],
+        ['emperor', [1]],
+        ['lab', []],
       ],
     );
   });
 
-  test('an agent in a matching session gets its room before tmux lists it', () => {
-    const config = { patterns: ['emperor-*'], sessions: [] };
-    const rooms = deriveOffice([char(1, { tmux: pane('emperor-9') })], {}, {}, config);
+  test('config order is kept', () => {
+    const rooms = deriveOffice(
+      [char(1, { tmux: pane('alpha') }), char(2, { tmux: pane('zeta') })],
+      {},
+      {},
+      [
+        { name: 'zeta', patterns: ['zeta'] },
+        { name: 'alpha', patterns: ['alpha'] },
+      ],
+    );
     assert.deepEqual(
       rooms.map((r) => r.id),
-      ['emperor-9'],
+      ['zeta', 'alpha'],
+    );
+  });
+
+  test('the first matching room wins', () => {
+    const rooms = deriveOffice([char(1, { tmux: pane('emperor-2') })], {}, {}, [
+      { name: 'all', patterns: ['*'] },
+      { name: 'emperor', patterns: ['emperor-*'] },
+    ]);
+    assert.deepEqual(
+      rooms.map((r) => [r.id, r.desks.map((d) => d.agentId)]),
+      [
+        ['all', [1]],
+        ['emperor', []],
+      ],
+    );
+  });
+
+  test('a non-matching session goes to the Background', () => {
+    const rooms = deriveOffice(
+      [char(1, { tmux: pane('scratch') }), char(2, { tmux: pane('emperor-1') }), char(3)],
+      {},
+      {},
+      [{ name: 'emperor', patterns: ['emperor-*'] }],
+    );
+    assert.deepEqual(
+      rooms.map((r) => [r.id, r.desks.map((d) => d.agentId)]),
+      [
+        ['emperor', [2]],
+        [BACKGROUND_ROOM_ID, [1, 3]],
+      ],
     );
   });
 
@@ -266,9 +316,25 @@ describe('roomHeat', () => {
 });
 
 describe('room patterns', () => {
-  test('split on commas and whitespace', () => {
-    assert.deepEqual(parseRoomPatterns(' emperor-*, ops\tlab '), ['emperor-*', 'ops', 'lab']);
-    assert.deepEqual(parseRoomPatterns(undefined), []);
+  test('parseRoomConfig reads named rooms', () => {
+    assert.deepEqual(parseRoomConfig('emperor=emperor-*'), [
+      { name: 'emperor', patterns: ['emperor-*'] },
+    ]);
+    assert.deepEqual(parseRoomConfig('emperor-*'), [
+      { name: 'emperor-*', patterns: ['emperor-*'] },
+    ]);
+    assert.deepEqual(parseRoomConfig('emperor=emperor-*; lab=lab-*,scratch'), [
+      { name: 'emperor', patterns: ['emperor-*'] },
+      { name: 'lab', patterns: ['lab-*', 'scratch'] },
+    ]);
+    assert.deepEqual(parseRoomConfig(' emperor = emperor-* ; ; lab = lab-* scratch '), [
+      { name: 'emperor', patterns: ['emperor-*'] },
+      { name: 'lab', patterns: ['lab-*', 'scratch'] },
+    ]);
+    assert.deepEqual(parseRoomConfig('emperor=; =scratch; bare'), [
+      { name: 'bare', patterns: ['bare'] },
+    ]);
+    assert.deepEqual(parseRoomConfig(undefined), []);
   });
 
   test('star matches any run and nothing else is special', () => {

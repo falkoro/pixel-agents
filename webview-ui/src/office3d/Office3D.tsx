@@ -68,7 +68,12 @@ export default function Office3D(props: Office3DProps) {
     function poll(): void {
       if (document.hidden) return;
       const { officeState: os, agentTerminals, agentTools, officeRooms } = latest.current;
-      const next = deriveOffice(os.characters.values(), agentTerminals, agentTools, officeRooms);
+      const next = deriveOffice(
+        os.characters.values(),
+        agentTerminals,
+        agentTools,
+        officeRooms?.rooms ?? null,
+      );
       const looks = new Map<number, Look>();
       for (const ch of os.characters.values()) {
         looks.set(ch.id, { palette: ch.palette, hueShift: ch.hueShift });

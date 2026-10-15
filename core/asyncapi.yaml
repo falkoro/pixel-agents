@@ -179,25 +179,19 @@ components:
 
     OfficeRooms:
       description: |
-        Which tmux sessions are rooms in the 3D office. Sent after `webviewReady`
-        and again whenever the matching sessions change, only when the server has
-        room patterns configured. Agents outside these rooms work in the background.
+        Named rooms for the 3D office. The server sends this after `webviewReady`
+        when rooms are configured. Agents whose tmux session matches no room work
+        in the background.
       type: object
       additionalProperties: false
-      required: [type, patterns, sessions]
+      required: [type, rooms]
       properties:
         type:
           const: officeRooms
-        patterns:
+        rooms:
           type: array
           items:
-            type: string
-          description: Session name globs, for example emperor-*. `*` matches any run of characters.
-        sessions:
-          type: array
-          items:
-            type: string
-          description: Live tmux sessions that match a pattern. Each one keeps its room, even with nobody in it.
+            $ref: '#/components/schemas/OfficeRoom'
 
     AgentCreated:
       description: A new agent has appeared in the office.
@@ -1152,6 +1146,20 @@ components:
           const: requestDiagnostics
 
     # ── Supporting schemas ─────────────────────────────────────────
+
+    OfficeRoom:
+      description: One named room and the tmux session globs that belong in it.
+      type: object
+      additionalProperties: false
+      required: [name, patterns]
+      properties:
+        name:
+          type: string
+        patterns:
+          type: array
+          items:
+            type: string
+          description: Session name globs. `*` matches any run of characters.
 
     AgentSeatMeta:
       description: |

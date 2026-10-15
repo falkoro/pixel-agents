@@ -92,7 +92,7 @@ export class AgentRuntime {
    * turn Watch All Sessions back off. Not written to disk.
    */
   forceWatchAll = false;
-  /** Latest room list when PIXEL_AGENTS_OFFICE_ROOMS is set, replayed on webviewReady. */
+  /** Named rooms from PIXEL_AGENTS_OFFICE_ROOMS, replayed on webviewReady. */
   officeRooms: OfficeRooms | null = null;
   readonly hooksEnabled = { current: true };
 

@@ -336,8 +336,12 @@ export interface WorkspaceFolder {
 
 export interface OfficeRooms {
   type: 'officeRooms';
+  rooms: OfficeRoom[];
+}
+
+export interface OfficeRoom {
+  name: string;
   patterns: string[];
-  sessions: string[];
 }
 
 export interface AgentDiagnostics {

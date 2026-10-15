@@ -36,7 +36,7 @@ export interface RoomModel {
 export const BACKGROUND_ROOM_ID = ':background';
 export const BACKGROUND_ROOM_TITLE = 'Background';
 
-export type RoomConfig = Pick<OfficeRooms, 'patterns' | 'sessions'>;
+export type RoomConfig = OfficeRooms['rooms'];
 
 export const STATUS_TEXT: Record<DeskStatus, string> = {
   working: 'Working',
@@ -88,11 +88,12 @@ function activityText(
 }
 
 /**
- * Turn the live character map into rooms of desks: one room per tmux session in
- * natural order, then the background for everyone else. Without `roomConfig`
- * every session is a room and only agents without a pane work in the
- * background. With it, only sessions matching its patterns are rooms, and each
- * of its live sessions keeps a room even when nobody is in it. Sub-agents ride
+ * Turn the live character map into rooms of desks. Without `roomConfig`, one
+ * room per tmux session in natural order, then the background for agents
+ * without a pane. With it, every configured room appears in config order, even
+ * with no desks. A desk joins the first room whose glob matches its session.
+ * A desk with no pane or no match goes to the background, last. Desks in a
+ * named room sort by session, then window, pane, and agent id. Sub-agents ride
  * along as helpers of their parent's desk. `agentTools` supplies the human
  * activity label ("Reading App.tsx"); without it the bare tool name is used.
  */
@@ -139,19 +140,6 @@ export function deriveOffice(
     parent.helpers.push({ agentId: sub.id, status: deskStatus(sub), tool: sub.currentTool });
   }
 
-  const bySession = new Map<string, DeskModel[]>(roomConfig?.sessions.map((s) => [s, []]));
-  const background: DeskModel[] = [];
-  for (const desk of desks.values()) {
-    const session = desk.pane?.session;
-    if (!session || (roomConfig && !matchesRoomPattern(roomConfig.patterns, session))) {
-      background.push(desk);
-      continue;
-    }
-    const list = bySession.get(session) ?? [];
-    list.push(desk);
-    bySession.set(session, list);
-  }
-
   const paneOrder = (a: DeskModel, b: DeskModel): number =>
     naturalCompare(a.pane?.windowId ?? '', b.pane?.windowId ?? '') ||
     naturalCompare(a.pane?.paneId ?? '', b.pane?.paneId ?? '') ||
@@ -160,20 +148,60 @@ export function deriveOffice(
     Number(!a.pane) - Number(!b.pane) ||
     naturalCompare(a.pane?.session ?? '', b.pane?.session ?? '') ||
     paneOrder(a, b);
-
-  const rooms: RoomModel[] = [...bySession.keys()].sort(naturalCompare).map((session) => ({
-    id: session,
-    title: session,
-    desks: (bySession.get(session) ?? []).sort(paneOrder),
-  }));
-  if (background.length > 0) {
+  const withBackground = (rooms: RoomModel[], background: DeskModel[]): RoomModel[] => {
+    if (background.length === 0) return rooms;
     rooms.push({
       id: BACKGROUND_ROOM_ID,
       title: BACKGROUND_ROOM_TITLE,
       desks: background.sort(backgroundOrder),
     });
+    return rooms;
+  };
+
+  if (roomConfig) {
+    const buckets = roomConfig.map((room) => ({ room, desks: [] as DeskModel[] }));
+    const background: DeskModel[] = [];
+    for (const desk of desks.values()) {
+      const session = desk.pane?.session;
+      const bucket = session
+        ? buckets.find((entry) => matchesRoomPattern(entry.room.patterns, session))
+        : undefined;
+      if (bucket) bucket.desks.push(desk);
+      else background.push(desk);
+    }
+    return withBackground(
+      buckets.map(({ room, desks: roomDesks }) => ({
+        id: room.name,
+        title: room.name,
+        desks: roomDesks.sort(
+          (a, b) => naturalCompare(a.pane?.session ?? '', b.pane?.session ?? '') || paneOrder(a, b),
+        ),
+      })),
+      background,
+    );
   }
-  return rooms;
+
+  const bySession = new Map<string, DeskModel[]>();
+  const background: DeskModel[] = [];
+  for (const desk of desks.values()) {
+    const session = desk.pane?.session;
+    if (!session) {
+      background.push(desk);
+      continue;
+    }
+    const list = bySession.get(session) ?? [];
+    list.push(desk);
+    bySession.set(session, list);
+  }
+
+  return withBackground(
+    [...bySession.keys()].sort(naturalCompare).map((session) => ({
+      id: session,
+      title: session,
+      desks: (bySession.get(session) ?? []).sort(paneOrder),
+    })),
+    background,
+  );
 }
 
 /** The most urgent status in a room, used to heat its floor and label. */

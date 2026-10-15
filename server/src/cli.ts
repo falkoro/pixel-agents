@@ -10,7 +10,7 @@
 
 import * as path from 'path';
 
-import { matchesRoomPattern, parseRoomPatterns } from '../../core/src/roomPatterns.js';
+import { parseRoomConfig } from '../../core/src/roomPatterns.js';
 import { type AccessVerifier, createAccessVerifier, type JwksDocument } from './accessJwt.js';
 import { AgentRuntime } from './agentRuntime.js';
 import { AgentStateStore } from './agentStateStore.js';
@@ -27,12 +27,11 @@ import {
   grantHooksConsent,
   readConfig,
 } from './configPersistence.js';
-import { CLAUDE_SESSION_POLL_INTERVAL_MS, MAX_PORT, MIN_PORT } from './constants.js';
+import { MAX_PORT, MIN_PORT } from './constants.js';
 import { FileStateAdapter } from './fileStateAdapter.js';
 import { ClaudeSessionRegistry } from './providers/hook/claude/claudeSessionRegistry.js';
 import { claudeProvider, copyHookScript, hookProviderById } from './providers/index.js';
 import { PixelAgentsServer } from './server.js';
-import { listTmuxSessions } from './tmuxTerminal.js';
 
 // ── Argument parsing ──────────────────────────────────────────
 
@@ -127,29 +126,6 @@ function copyHookScriptOrReport(packageRoot: string, context = ''): boolean {
 }
 
 // ── Main ──────────────────────────────────────────────────────
-
-/**
- * Keep runtime.officeRooms in step with the tmux sessions that match
- * PIXEL_AGENTS_OFFICE_ROOMS. A failed tmux call keeps the last list, so a
- * slow tick never empties the office.
- */
-function watchOfficeRooms(runtime: AgentRuntime, store: AgentStateStore): void {
-  const patterns = parseRoomPatterns(process.env.PIXEL_AGENTS_OFFICE_ROOMS);
-  if (patterns.length === 0) return;
-  console.log(`[Pixel Agents] Office rooms: ${patterns.join(', ')}`);
-  const tick = async (): Promise<void> => {
-    const live = await listTmuxSessions();
-    const sessions = live
-      ? live.filter((name) => matchesRoomPattern(patterns, name)).sort()
-      : (runtime.officeRooms?.sessions ?? []);
-    if (JSON.stringify(sessions) !== JSON.stringify(runtime.officeRooms?.sessions)) {
-      runtime.officeRooms = { type: 'officeRooms', patterns, sessions };
-      store.broadcast({ ...runtime.officeRooms });
-    }
-    setTimeout(() => void tick(), CLAUDE_SESSION_POLL_INTERVAL_MS).unref();
-  };
-  void tick();
-}
 
 async function main(): Promise<void> {
   let args: CliArgs;
@@ -285,6 +261,15 @@ async function main(): Promise<void> {
         '[Pixel Agents] WARNING: --insecure-local-terminal is on. /ws/term accepts connections without Cloudflare Access. Do not expose this server.',
       );
     }
+    const rooms = parseRoomConfig(process.env.PIXEL_AGENTS_OFFICE_ROOMS);
+    if (rooms.length > 0) {
+      runtime.officeRooms = { type: 'officeRooms', rooms };
+      console.log(
+        `[Pixel Agents] Office rooms: ${rooms
+          .map((room) => `${room.name} (${room.patterns.join(', ')})`)
+          .join('; ')}`,
+      );
+    }
 
     const sessionRegistry = new ClaudeSessionRegistry();
     const config = await server.start({
@@ -359,7 +344,6 @@ async function main(): Promise<void> {
       runtime.startStaleCheck();
     }
     runtime.startLiveSessionRegistry(sessionRegistry);
-    watchOfficeRooms(runtime, store);
 
     // The URL the operator opens has to be REACHABLE (a wildcard bind address
     // is a bind target, not an address you can browse to — `--host 0.0.0.0`
