@@ -1,9 +1,9 @@
-# 3D office: rationale
+# 3D office
 
 ## Design choices
 
 - **Model first, pure.** `deriveOffice` turns the live `OfficeState` characters into rooms (one per tmux
-  session, natural order, Unattached last) of desks with helpers. Status comes from one first-match table.
+  session, natural order, Lounge last) of desks with helpers. Status comes from one first-match table.
   `layoutOffice` is a pure function of room shapes and viewport aspect. Both are covered by vitest.
 - **Feeding the scene.** `OfficeState` is mutated in place and never re-renders React, so `Office3D` polls
   it every 250 ms and pushes a snapshot only when a JSON signature changes. The scene never reads React state.
@@ -54,6 +54,6 @@
 - In the overview the "!" badge can sit under its room label; the beam above the room compensates.
 - On phones a roster name longer than the room plus half the gap is ellipsised.
 - The Office3D chunk is about 600 kB (lazy-loaded) and trips Vite's chunk-size warning.
-- Frame rates were only seen under SwiftShader, so real-GPU performance is not measured. Permission,
-  waiting and done states in the demo come from hook events posted to the rig, and a reload loses them
-  until they are posted again.
+- Frame rates were only seen under SwiftShader, so real-GPU performance is not measured.
+- A viewer holding the server token gets the first-run tour, which shows the pixel view, and its game loop
+  fades a done bubble in 2 seconds. Viewers behind Access never get the tour.
