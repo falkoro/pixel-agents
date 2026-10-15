@@ -34,13 +34,13 @@ describe('parseTmuxLocation', () => {
 });
 
 describe('parseSessionFile', () => {
-  const configDir = '/home/falk/.claude-zappa';
+  const configDir = '/home/me/.claude-work';
 
   it('reads the fields the registry keeps and ignores the rest', () => {
     const raw = JSON.stringify({
       pid: 7951,
       sessionId: '44325277-1111-1111-1111-111111111111',
-      cwd: '/home/falk/repos/spot-cloud/reddit-fetch',
+      cwd: '/home/me/repos/reddit-fetch',
       tmux: 'emperor-6:@12.%12',
       status: 'idle',
       name: 'reddit-fetch-88',
@@ -50,7 +50,7 @@ describe('parseSessionFile', () => {
       pid: 7951,
       sessionId: '44325277-1111-1111-1111-111111111111',
       configDir,
-      cwd: '/home/falk/repos/spot-cloud/reddit-fetch',
+      cwd: '/home/me/repos/reddit-fetch',
       tmux: { session: 'emperor-6', windowId: '@12', paneId: '%12' },
       status: 'idle',
       name: 'reddit-fetch-88',
@@ -110,7 +110,7 @@ describe('ClaudeSessionRegistry', () => {
       status: 'busy',
       name: 'alpha',
     });
-    writeSession(root, '.claude-zappa', '2.json', {
+    writeSession(root, '.claude-work', '2.json', {
       pid: process.pid,
       sessionId: 'live-b',
       cwd: '/work/b',
@@ -145,7 +145,7 @@ describe('ClaudeSessionRegistry', () => {
       sessionId: 'same',
       cwd: '/work',
     });
-    writeSession(root, '.claude-zappa', 'b.json', {
+    writeSession(root, '.claude-work', 'b.json', {
       pid: process.pid,
       sessionId: 'same',
       cwd: '/work',
@@ -153,7 +153,7 @@ describe('ClaudeSessionRegistry', () => {
     });
     const registry = new ClaudeSessionRegistry({ homeDir: root });
     registry.refresh();
-    expect(registry.get('same')?.configDir).toBe(path.join(root, '.claude-zappa'));
+    expect(registry.get('same')?.configDir).toBe(path.join(root, '.claude-work'));
     expect(registry.get('same')?.tmux?.paneId).toBe('%4');
   });
 });
@@ -178,15 +178,15 @@ describe('live session adoption', () => {
     const cwd = path.join(root, 'work');
     fs.mkdirSync(cwd, { recursive: true });
     const sessionId = '11111111-1111-1111-1111-111111111111';
-    const projectDir = path.join(root, '.claude-zappa', 'projects', normalizeProjectPath(cwd));
+    const projectDir = path.join(root, '.claude-work', 'projects', normalizeProjectPath(cwd));
     fs.mkdirSync(projectDir, { recursive: true });
     const jsonl = path.join(projectDir, `${sessionId}.jsonl`);
     fs.writeFileSync(jsonl, '{"type":"user"}\n');
     const old = new Date(Date.now() - 60 * 60 * 1000);
     fs.utimesSync(jsonl, old, old);
-    fs.mkdirSync(path.join(root, '.claude-zappa', 'sessions'), { recursive: true });
+    fs.mkdirSync(path.join(root, '.claude-work', 'sessions'), { recursive: true });
     fs.writeFileSync(
-      path.join(root, '.claude-zappa', 'sessions', '1.json'),
+      path.join(root, '.claude-work', 'sessions', '1.json'),
       JSON.stringify({
         pid: process.pid,
         sessionId,
@@ -201,7 +201,10 @@ describe('live session adoption', () => {
     runtime = new AgentRuntime(store, claudeProvider);
     if (watch === 'tracked') runtime.startProjectScan(projectDir);
     if (watch === 'all') runtime.forceWatchAll = true;
-    runtime.startLiveSessionRegistry(new ClaudeSessionRegistry({ homeDir: root }), async () => null);
+    runtime.startLiveSessionRegistry(
+      new ClaudeSessionRegistry({ homeDir: root }),
+      async () => null,
+    );
     return store;
   }
 

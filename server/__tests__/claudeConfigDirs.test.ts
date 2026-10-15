@@ -25,18 +25,18 @@ describe('claude config dirs', () => {
 
   it('lists config directories, skips files and bak dirs, and keeps .claude first', () => {
     const root = home();
-    fs.mkdirSync(path.join(root, '.claude-zappa'));
+    fs.mkdirSync(path.join(root, '.claude-work'));
     fs.mkdirSync(path.join(root, '.claude'));
-    fs.mkdirSync(path.join(root, '.claude-goldmary'));
+    fs.mkdirSync(path.join(root, '.claude-client'));
     fs.writeFileSync(path.join(root, '.claude.json'), '{}');
     fs.mkdirSync(path.join(root, '.claude.bak-old'));
-    fs.mkdirSync(path.join(root, '.claude-goldmary.bak-1'));
+    fs.mkdirSync(path.join(root, '.claude-client.bak-1'));
     fs.mkdirSync(path.join(root, 'notes'));
 
     expect(listClaudeConfigDirs(root).map((dir) => path.basename(dir))).toEqual([
       '.claude',
-      '.claude-goldmary',
-      '.claude-zappa',
+      '.claude-client',
+      '.claude-work',
     ]);
   });
 
@@ -54,10 +54,10 @@ describe('claude config dirs', () => {
 
   it('includes the canonical projects root even when .claude does not exist', () => {
     const root = home();
-    fs.mkdirSync(path.join(root, '.claude-zappa'));
+    fs.mkdirSync(path.join(root, '.claude-work'));
     expect(allSessionRoots(root)).toEqual([
       path.join(root, '.claude', 'projects'),
-      path.join(root, '.claude-zappa', 'projects'),
+      path.join(root, '.claude-work', 'projects'),
     ]);
   });
 
@@ -65,13 +65,13 @@ describe('claude config dirs', () => {
     const root = home();
     const workspace = '/tmp/Example Project';
     const hashed = normalizeProjectPath(workspace);
-    const zappa = path.join(root, '.claude-zappa', 'projects', hashed);
-    fs.mkdirSync(zappa, { recursive: true });
+    const work = path.join(root, '.claude-work', 'projects', hashed);
+    fs.mkdirSync(work, { recursive: true });
     fs.mkdirSync(path.join(root, '.claude'));
 
     expect(sessionDirsForWorkspace(root, workspace)).toEqual([
       path.join(root, '.claude', 'projects', hashed),
-      zappa,
+      work,
     ]);
 
     const empty = home();

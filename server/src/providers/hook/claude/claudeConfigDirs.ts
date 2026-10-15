@@ -10,7 +10,7 @@ const BAK_DIR = /\.bak-/;
 
 /**
  * Turn a glob that only uses `*` into an anchored regex.
- * `.claude*` matches `.claude` and `.claude-zappa`.
+ * `.claude*` matches `.claude` and `.claude-work`.
  */
 export function configDirGlobToRegExp(glob: string): RegExp {
   const body = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');

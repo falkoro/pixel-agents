@@ -155,10 +155,10 @@ describe('deriveOffice', () => {
 
   test('terminal metadata wins over the character copy', () => {
     const chars = [char(1, { tmux: pane('stale'), sessionName: 'old' })];
-    const terminals = { 1: { name: 'firstmate-b4', tmux: pane('emperor-8') } };
+    const terminals = { 1: { name: 'on-call-b4', tmux: pane('emperor-8') } };
     const [room] = deriveOffice(chars, terminals);
     assert.equal(room.id, 'emperor-8');
-    assert.equal(roomDesks(room)[0].name, 'firstmate-b4');
+    assert.equal(roomDesks(room)[0].name, 'on-call-b4');
     assert.deepEqual(roomDesks(room)[0].pane, pane('emperor-8'));
   });
 

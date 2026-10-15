@@ -41,10 +41,10 @@ const blocked: ChoiceStore = {
 
 describe('default character', () => {
   test('the same name always gets the same kind', () => {
-    for (const name of ['emperor-8', 'firstmate-c9', 'nightly-digest', '']) {
+    for (const name of ['emperor-8', 'triage-c9', 'nightly-digest', '']) {
       assert.equal(defaultCharacterKind(name), defaultCharacterKind(`${name}`));
     }
-    assert.equal(defaultCharacterKind('firstmate-c9'), defaultCharacterKind('firstmate-c9'));
+    assert.equal(defaultCharacterKind('triage-c9'), defaultCharacterKind('triage-c9'));
   });
 
   test('kinds spread across names', () => {

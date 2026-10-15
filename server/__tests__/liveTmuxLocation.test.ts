@@ -152,10 +152,10 @@ describe('live pane following', () => {
     const cwd = path.join(root, 'work');
     fs.mkdirSync(cwd, { recursive: true });
     const sessionId = '11111111-1111-1111-1111-111111111111';
-    const projectDir = path.join(root, '.claude-zappa', 'projects', normalizeProjectPath(cwd));
+    const projectDir = path.join(root, '.claude-work', 'projects', normalizeProjectPath(cwd));
     fs.mkdirSync(projectDir, { recursive: true });
     fs.writeFileSync(path.join(projectDir, `${sessionId}.jsonl`), '{"type":"user"}\n');
-    const sessionsDir = path.join(root, '.claude-zappa', 'sessions');
+    const sessionsDir = path.join(root, '.claude-work', 'sessions');
     fs.mkdirSync(sessionsDir, { recursive: true });
     fs.writeFileSync(
       path.join(sessionsDir, '1.json'),

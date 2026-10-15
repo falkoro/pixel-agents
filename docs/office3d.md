@@ -65,7 +65,7 @@ The 3D office answers two questions at a glance: what is each session doing, and
 
 ## Known weaknesses
 
-- In the overview a long name wraps to up to four lines, and a word wider than its desk, such as `plantmaxxing`, breaks inside the word.
+- In the overview a long name wraps to up to four lines, and a word wider than its desk, such as `internationalisation`, breaks inside the word.
 - On a phone the roster's two-line names can cover the pinned pod's sign. The pinned desk itself stays in view.
 - On a phone the porch name list covers the porch desks.
 - A "?" badge on a back-row desk can overlap the label of the desk in front.

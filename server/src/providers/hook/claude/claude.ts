@@ -74,7 +74,7 @@ export function formatToolStatus(toolName: string, input?: unknown): string {
 // ── Session dir + launch command ──
 
 function getSessionDirs(workspacePath: string): string[] {
-  // One transcript directory per Claude config dir (~/.claude, ~/.claude-zappa, …).
+  // One transcript directory per Claude config dir (~/.claude, ~/.claude-work, …).
   // The canonical ~/.claude path stays first so a launch still anchors there.
   return sessionDirsForWorkspace(os.homedir(), workspacePath);
 }

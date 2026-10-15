@@ -23,7 +23,7 @@ export interface TmuxLocation {
 export interface LiveClaudeSession {
   pid: number;
   sessionId: string;
-  /** Absolute config directory, for example `/home/falk/.claude-zappa`. */
+  /** Absolute config directory, for example `/home/me/.claude-work`. */
   configDir: string;
   cwd: string;
   tmux: TmuxLocation | null;
