@@ -73,6 +73,8 @@ export interface ToolActivity {
   status: string;
   done: boolean;
   permissionWait?: boolean;
+  /** An open question tool: the agent waits for the user's answer. */
+  question?: boolean;
 }
 
 export const EditTool = {

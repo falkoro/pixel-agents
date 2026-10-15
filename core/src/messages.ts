@@ -69,6 +69,7 @@ export interface ProviderCapabilities {
   type: 'providerCapabilities';
   readingTools: string[];
   subagentToolNames: string[];
+  questionTools?: string[];
 }
 
 export interface AgentCreated {

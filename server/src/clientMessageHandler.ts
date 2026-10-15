@@ -366,6 +366,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     type: 'providerCapabilities',
     readingTools: [...claudeProvider.readingTools],
     subagentToolNames: [...claudeProvider.subagentToolNames],
+    questionTools: [...(claudeProvider.questionTools ?? [])],
   });
 
   // 2. Assets (from server cache, loaded at startup via pngjs)

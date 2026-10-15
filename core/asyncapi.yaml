@@ -170,6 +170,11 @@ components:
           items:
             type: string
           description: Tool names that spawn sub-agent characters (e.g. Task, Agent).
+        questionTools:
+          type: array
+          items:
+            type: string
+          description: Tool names that ask the user a question. While one is open the agent waits for an answer.
 
     AgentCreated:
       description: A new agent has appeared in the office.

@@ -45,13 +45,17 @@ export const STATUS_TEXT: Record<DeskStatus, string> = {
 /** Desks that need the owner, most urgent first. */
 export const ATTENTION_STATUSES: readonly DeskStatus[] = ['needs-permission', 'waiting-input'];
 
-type StatusInput = Pick<Character, 'bubbleType' | 'waitingAwaitingInput' | 'isActive'>;
+type StatusInput = Pick<Character, 'bubbleType' | 'waitingAwaitingInput' | 'isActive'> & {
+  /** An open question tool; without hooks this is the only "waiting for you" signal. */
+  asking?: boolean;
+};
 
 // First match wins. Active sits above the waiting rows because the office only
 // fades a turn-end bubble in its 2D game loop: when the agent starts its next
 // turn, a stale 'waiting' bubble must not keep it looking finished.
 const STATUS_TABLE: ReadonlyArray<readonly [(c: StatusInput) => boolean, DeskStatus]> = [
   [(c) => c.bubbleType === 'permission', 'needs-permission'],
+  [(c) => c.isActive && c.asking === true, 'waiting-input'],
   [(c) => c.isActive, 'working'],
   [(c) => c.bubbleType === 'waiting' && c.waitingAwaitingInput === true, 'waiting-input'],
   [(c) => c.bubbleType === 'waiting', 'done'],
@@ -100,13 +104,19 @@ export function deriveOffice(
       continue;
     }
     const meta = terminals[ch.id];
-    const status = deskStatus(ch);
+    const tools = agentTools[ch.id];
+    const status = deskStatus({
+      bubbleType: ch.bubbleType,
+      waitingAwaitingInput: ch.waitingAwaitingInput,
+      isActive: ch.isActive,
+      asking: tools?.some((t) => t.question && !t.done),
+    });
     desks.set(ch.id, {
       agentId: ch.id,
       name: meta?.name || ch.sessionName || ch.folderName || `Agent ${ch.id}`,
       pane: meta ? meta.tmux : (ch.tmux ?? null),
       status,
-      tool: activityText(ch, agentTools[ch.id], status),
+      tool: activityText(ch, tools, status),
       contextRatio:
         ch.maxContextTokens > 0
           ? Math.min(1, Math.max(0, ch.contextTokens / ch.maxContextTokens))

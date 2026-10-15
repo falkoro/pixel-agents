@@ -14,6 +14,7 @@ import { setPetTemplates } from '../office/sprites/petSpriteData.js';
 import { setCharacterTemplates } from '../office/sprites/spriteData.js';
 import {
   extractToolName,
+  isQuestionToolName,
   isSubagentToolName,
   setProviderCapabilities,
 } from '../office/toolUtils.js';
@@ -248,6 +249,7 @@ export function useExtensionMessages(
         setProviderCapabilities({
           readingTools: msg.readingTools,
           subagentToolNames: msg.subagentToolNames,
+          questionTools: msg.questionTools,
         });
         return;
       }
@@ -427,6 +429,8 @@ export function useExtensionMessages(
         const toolId = msg.toolId as string;
         const status = msg.status as string;
         const permissionActive = msg.permissionActive as boolean | undefined;
+        const toolName = (msg.toolName as string | undefined) ?? extractToolName(status);
+        const question = isQuestionToolName(toolName);
         setAgentTools((prev) => {
           const list = prev[id] || [];
           if (list.some((t) => t.toolId === toolId)) return prev;
@@ -434,11 +438,10 @@ export function useExtensionMessages(
             ...prev,
             [id]: [
               ...list,
-              { toolId, status, done: false, permissionWait: permissionActive || false },
+              { toolId, status, done: false, permissionWait: permissionActive || false, question },
             ],
           };
         });
-        const toolName = (msg.toolName as string | undefined) ?? extractToolName(status);
         os.setAgentTool(id, toolName);
         os.setAgentActive(id, true);
         // Don't clear the permission bubble if the hook already confirmed permission is needed

@@ -4,7 +4,7 @@ import { describe, test } from 'vitest';
 
 import type { Character } from '../src/office/types.js';
 import type { TerminalMeta } from '../src/office3d/model.js';
-import { deriveOffice, deskStatus, LOUNGE_ROOM_ID,roomHeat } from '../src/office3d/model.js';
+import { deriveOffice, deskStatus, LOUNGE_ROOM_ID, roomHeat } from '../src/office3d/model.js';
 
 function char(id: number, extra: Partial<Character> = {}): Character {
   return {
@@ -177,6 +177,24 @@ describe('deriveOffice', () => {
     assert.deepEqual(
       desks.map((d) => d.tool),
       ['Editing model.ts', 'Reading README.md', 'Bash', null],
+    );
+  });
+
+  test('an open question tool reads as waiting for you, an answered one as working', () => {
+    const chars = [
+      char(1, { isActive: true, currentTool: 'AskUserQuestion' }),
+      char(2, { isActive: true, currentTool: 'AskUserQuestion' }),
+      char(3, { isActive: true, bubbleType: 'permission' }),
+    ];
+    const tools = {
+      1: [{ toolId: 'a', status: 'Waiting for your answer', done: false, question: true }],
+      2: [{ toolId: 'b', status: 'Waiting for your answer', done: true, question: true }],
+      3: [{ toolId: 'c', status: 'Waiting for your answer', done: false, question: true }],
+    };
+    const desks = deriveOffice(chars, {}, tools)[0].desks;
+    assert.deepEqual(
+      desks.map((d) => d.status),
+      ['waiting-input', 'working', 'needs-permission'],
     );
   });
 
