@@ -27,6 +27,9 @@
   --o3d-ppm: 40;
   position: absolute;
   inset: 0;
+  /* CSS2DRenderer depth-sorts labels with z-index; keep that inside this layer
+     so off-screen labels never paint over the room bar. */
+  z-index: 0;
   pointer-events: none;
 }
 
