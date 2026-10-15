@@ -11,7 +11,7 @@ name="${2:-demo}"
 port="${3:-3199}"
 sock="pa-demo-${name}"
 dir="${TMPDIR:-/tmp}/pa-demo-${name}"
-root="$(cd "$(dirname "$0")/.." && pwd)"
+root="${PA_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 
 # session|window name|config dir|state|cols|rows
 agents=(
@@ -30,8 +30,8 @@ tools=(Read Grep Edit Bash Glob Write WebFetch)
 targets=(server/src/httpServer.ts useExtensionMessages webview-ui/src/App.tsx "npm test" "**/*.tsx" docs/notes.md https://example.com)
 
 stop_rig() {
-  for f in server animate; do
-    [[ -f "$dir/$f.pid" ]] && kill "$(cat "$dir/$f.pid")" 2>/dev/null || true
+  for f in "$dir"/server.pid "$dir"/animate.pid "$dir"/panes/*.headless.pid; do
+    [[ -f "$f" ]] && kill "$(cat "$f")" 2>/dev/null || true
   done
   tmux -L "$sock" kill-server 2>/dev/null || true
   rm -rf "$dir"
@@ -81,19 +81,9 @@ start_rig() {
     printf '\033[1;38;5;208m✻ Claude Code\033[0m  %s\n\n> %s\n\n' "$window" "keep going on the $window task" > "$dir/panes/$i.log"
 
     line "$file" "{\"type\":\"user\",\"sessionId\":\"$sid\",\"timestamp\":\"$(now)\",\"message\":{\"role\":\"user\",\"content\":\"keep going on the $window task\"}}"
-    case "$state" in
-      working) tool_use "$file" "$sid" "toolu_${i}_0" Read '{"file_path":"README.md"}' ;;
-      permission) tool_use "$file" "$sid" "toolu_${i}_0" Bash '{"command":"git push --force-with-lease"}' ;;
-      asking) tool_use "$file" "$sid" "toolu_${i}_0" AskUserQuestion '{"questions":[{"question":"Ship it?"}]}' ;;
-      subagent) tool_use "$file" "$sid" "toolu_${i}_0" Agent '{"description":"Audit the tunnel config","subagent_type":"general-purpose","prompt":"audit"}' ;;
-      done)
-        line "$file" "{\"type\":\"assistant\",\"sessionId\":\"$sid\",\"timestamp\":\"$(now)\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Done.\"}]}}"
-        line "$file" "{\"type\":\"system\",\"subtype\":\"turn_duration\",\"sessionId\":\"$sid\",\"timestamp\":\"$(now)\",\"durationMs\":42000}"
-        ;;
-    esac
 
     if [[ "$session" == "-" ]]; then
-      sleep infinity &
+      sleep infinity > /dev/null 2>&1 &
       pid=$!
       echo "{\"pid\":$pid,\"sessionId\":\"$sid\",\"cwd\":\"$cwd\",\"status\":\"busy\",\"name\":\"$window\"}" > "$dir/home/$cfg/sessions/$pid.json"
       echo "$pid" > "$dir/panes/$i.headless.pid"
@@ -112,9 +102,6 @@ start_rig() {
     i=$((i + 1))
   done
 
-  animate &
-  echo $! > "$dir/animate.pid"
-
   (HOME="$dir/home" PIXEL_AGENTS_TMUX_SOCKET="$sock" nohup node "$root/dist/cli.js" \
     --port "$port" --host 127.0.0.1 --watch-all --insecure-local-terminal > "$dir/server.log" 2>&1 &
     echo $! > "$dir/server.pid")
@@ -122,7 +109,31 @@ start_rig() {
     grep -q "http://127.0.0.1:$port/?token=" "$dir/server.log" 2>/dev/null && break
     sleep 0.25
   done
+  sleep 6
+  seed_states
+  animate > /dev/null 2>&1 &
+  echo $! > "$dir/animate.pid"
   grep -o "http://127.0.0.1:$port/?token=[^ ]*" "$dir/server.log" | head -1
+}
+
+# Adopted sessions start reading at end of file, so state lines must land after adoption.
+seed_states() {
+  local i state file sid
+  for ((i = 0; i < ${#agents[@]}; i++)); do
+    state="$(cat "$dir/panes/$i.state")"
+    file="$(cat "$dir/panes/$i.transcript")"
+    sid="$(cat "$dir/panes/$i.sid")"
+    case "$state" in
+      working) tool_use "$file" "$sid" "toolu_${i}_0" Read '{"file_path":"README.md"}' ;;
+      permission) tool_use "$file" "$sid" "toolu_${i}_0" Bash '{"command":"git push --force-with-lease"}' ;;
+      asking) tool_use "$file" "$sid" "toolu_${i}_0" AskUserQuestion '{"questions":[{"question":"Ship it?"}]}' ;;
+      subagent) tool_use "$file" "$sid" "toolu_${i}_0" Agent '{"description":"Audit the tunnel config","subagent_type":"general-purpose","prompt":"audit"}' ;;
+      done)
+        line "$file" "{\"type\":\"assistant\",\"sessionId\":\"$sid\",\"timestamp\":\"$(now)\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Done.\"}]}}"
+        line "$file" "{\"type\":\"system\",\"subtype\":\"turn_duration\",\"sessionId\":\"$sid\",\"timestamp\":\"$(now)\",\"durationMs\":42000}"
+        ;;
+    esac
+  done
 }
 
 # Keeps the "working" agents busy so the office shows live tool changes.
