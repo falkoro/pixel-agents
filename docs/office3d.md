@@ -59,6 +59,8 @@
 - Geometry dimensions are inline in `assets.ts` rather than in `constants.ts`.
 - In the overview the "!" badge can sit under its room label; the beam above the room compensates.
 - On phones a roster name longer than the room plus half the gap is ellipsised.
+- On phones a room title with two status counts wraps to two lines and can cover the last name of the list
+  behind it.
 - The Office3D chunk is about 600 kB (lazy-loaded) and trips Vite's chunk-size warning.
 - Frame rates were only seen under SwiftShader, so real-GPU performance is not measured.
 - A viewer holding the server token gets the first-run tour, which shows the pixel view, and its game loop
