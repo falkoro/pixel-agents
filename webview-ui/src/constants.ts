@@ -338,6 +338,8 @@ export const OFFICE3D_DEPTH_FORESHORTEN = 0.9;
 export const OFFICE3D_NARROW_ASPECT = 0.8;
 /** Extra floor at the front of each room on narrow viewports, per desk, for its name list. */
 export const OFFICE3D_ROSTER_LINE_DEPTH = 0.9;
+/** Desk size in the background strip behind the rooms, relative to a room desk. */
+export const OFFICE3D_BACKGROUND_SCALE = 0.6;
 /** Default camera tilt from straight down, wide and narrow viewports (radians). */
 export const OFFICE3D_CAMERA_POLAR = 0.78;
 export const OFFICE3D_CAMERA_POLAR_NARROW = 0.5;

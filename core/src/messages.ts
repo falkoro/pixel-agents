@@ -39,6 +39,7 @@ export type ServerMessage =
   | ExternalAssetDirectoriesUpdated
   | AreaMappingsLoaded
   | WorkspaceFolders
+  | OfficeRooms
   | AgentDiagnostics;
 
 export type ClientMessage =
@@ -331,6 +332,12 @@ export interface WorkspaceFolders {
 export interface WorkspaceFolder {
   name: string;
   path: string;
+}
+
+export interface OfficeRooms {
+  type: 'officeRooms';
+  patterns: string[];
+  sessions: string[];
 }
 
 export interface AgentDiagnostics {

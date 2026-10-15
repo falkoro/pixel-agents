@@ -1,3 +1,5 @@
+import type { OfficeRooms } from '../../../core/src/messages.js';
+import { matchesRoomPattern } from '../../../core/src/roomPatterns.js';
 import type { Character, ToolActivity } from '../office/types.js';
 
 export type DeskStatus = 'working' | 'needs-permission' | 'waiting-input' | 'done' | 'idle';
@@ -31,8 +33,10 @@ export interface RoomModel {
 }
 
 /** tmux turns ':' in a session name into '_', so this id never collides with a session. */
-export const LOUNGE_ROOM_ID = ':lounge';
-export const LOUNGE_ROOM_TITLE = 'Lounge';
+export const BACKGROUND_ROOM_ID = ':background';
+export const BACKGROUND_ROOM_TITLE = 'Background';
+
+export type RoomConfig = Pick<OfficeRooms, 'patterns' | 'sessions'>;
 
 export const STATUS_TEXT: Record<DeskStatus, string> = {
   working: 'Working',
@@ -85,14 +89,18 @@ function activityText(
 
 /**
  * Turn the live character map into rooms of desks: one room per tmux session in
- * natural order, then one room for top-level agents without a pane. Sub-agents
- * ride along as helpers of their parent's desk. `agentTools` supplies the human
+ * natural order, then the background for everyone else. Without `roomConfig`
+ * every session is a room and only agents without a pane work in the
+ * background. With it, only sessions matching its patterns are rooms, and each
+ * of its live sessions keeps a room even when nobody is in it. Sub-agents ride
+ * along as helpers of their parent's desk. `agentTools` supplies the human
  * activity label ("Reading App.tsx"); without it the bare tool name is used.
  */
 export function deriveOffice(
   chars: Iterable<Character>,
   terminals: Record<number, TerminalMeta>,
   agentTools: Record<number, ToolActivity[]> = {},
+  roomConfig: RoomConfig | null = null,
 ): RoomModel[] {
   const desks = new Map<number, DeskModel>();
   const subagents: Character[] = [];
@@ -131,33 +139,38 @@ export function deriveOffice(
     parent.helpers.push({ agentId: sub.id, status: deskStatus(sub), tool: sub.currentTool });
   }
 
-  const bySession = new Map<string, DeskModel[]>();
-  const lounge: DeskModel[] = [];
+  const bySession = new Map<string, DeskModel[]>(roomConfig?.sessions.map((s) => [s, []]));
+  const background: DeskModel[] = [];
   for (const desk of desks.values()) {
-    if (!desk.pane) {
-      lounge.push(desk);
+    const session = desk.pane?.session;
+    if (!session || (roomConfig && !matchesRoomPattern(roomConfig.patterns, session))) {
+      background.push(desk);
       continue;
     }
-    const list = bySession.get(desk.pane.session) ?? [];
+    const list = bySession.get(session) ?? [];
     list.push(desk);
-    bySession.set(desk.pane.session, list);
+    bySession.set(session, list);
   }
 
   const paneOrder = (a: DeskModel, b: DeskModel): number =>
     naturalCompare(a.pane?.windowId ?? '', b.pane?.windowId ?? '') ||
     naturalCompare(a.pane?.paneId ?? '', b.pane?.paneId ?? '') ||
     a.agentId - b.agentId;
+  const backgroundOrder = (a: DeskModel, b: DeskModel): number =>
+    Number(!a.pane) - Number(!b.pane) ||
+    naturalCompare(a.pane?.session ?? '', b.pane?.session ?? '') ||
+    paneOrder(a, b);
 
   const rooms: RoomModel[] = [...bySession.keys()].sort(naturalCompare).map((session) => ({
     id: session,
     title: session,
     desks: (bySession.get(session) ?? []).sort(paneOrder),
   }));
-  if (lounge.length > 0) {
+  if (background.length > 0) {
     rooms.push({
-      id: LOUNGE_ROOM_ID,
-      title: LOUNGE_ROOM_TITLE,
-      desks: lounge.sort((a, b) => a.agentId - b.agentId),
+      id: BACKGROUND_ROOM_ID,
+      title: BACKGROUND_ROOM_TITLE,
+      desks: background.sort(backgroundOrder),
     });
   }
   return rooms;

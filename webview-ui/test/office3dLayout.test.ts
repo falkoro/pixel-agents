@@ -5,6 +5,7 @@ import { describe, test } from 'vitest';
 import type { OfficePlan } from '../src/office3d/layout.js';
 import { planOffice } from '../src/office3d/layout.js';
 import type { DeskModel, RoomModel } from '../src/office3d/model.js';
+import { BACKGROUND_ROOM_ID } from '../src/office3d/model.js';
 
 let nextId = 1;
 function room(id: string, desks: number): RoomModel {
@@ -126,5 +127,41 @@ describe('planOffice', () => {
   test('an empty office still plans', () => {
     const plan = planOffice([], 1);
     assert.deepEqual(plan.rooms, []);
+  });
+
+  test('the background is a strip of smaller desks behind the grid', () => {
+    for (const aspect of [390 / 844, 1600 / 900]) {
+      const plan = planOffice([...rooms(8), room(BACKGROUND_ROOM_ID, 11)], aspect);
+      const strip = plan.rooms[plan.rooms.length - 1];
+      const grid = plan.rooms.slice(0, -1);
+      assert.equal(strip.id, BACKGROUND_ROOM_ID);
+      assert.ok(!overlaps(plan), `overlap at aspect=${aspect}`);
+      assert.ok(grid.every((r) => r.z - r.depth / 2 > strip.z + strip.depth / 2));
+      assert.equal(strip.width, plan.width);
+      assert.ok(Math.abs(strip.z - strip.depth / 2 + plan.depth / 2) < 1e-9);
+      const gridBottom = Math.max(...grid.map((r) => r.z + r.depth / 2));
+      assert.ok(Math.abs(gridBottom - plan.depth / 2) < 1e-9);
+      assert.ok(strip.desks.every((d) => d.scale < 1));
+      assert.ok(grid.every((r) => r.desks.every((d) => d.scale === 1)));
+      for (const d of strip.desks) {
+        assert.ok(Math.abs(d.x - strip.x) < strip.width / 2, 'desk x outside the strip');
+        assert.ok(Math.abs(d.z - strip.z) < strip.depth / 2, 'desk z outside the strip');
+      }
+    }
+  });
+
+  test('a narrow viewport adds front floor for the background name list', () => {
+    const office = [...rooms(4), room(BACKGROUND_ROOM_ID, 3)];
+    const strip = (plan: OfficePlan) => plan.rooms[plan.rooms.length - 1];
+    const wide = planOffice(office, 1600 / 900);
+    const phone = planOffice(office, 390 / 844);
+    assert.ok(strip(phone).depth > strip(wide).depth);
+  });
+
+  test('the background alone sits at the origin', () => {
+    const plan = planOffice([room(BACKGROUND_ROOM_ID, 3)], 16 / 9);
+    assert.equal(plan.rooms[0].x, 0);
+    assert.equal(plan.rooms[0].z, 0);
+    assert.equal(plan.depth, plan.rooms[0].depth);
   });
 });

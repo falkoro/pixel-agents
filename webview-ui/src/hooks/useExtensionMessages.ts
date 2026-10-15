@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { HooksConsentRequest } from '../../../core/src/messages.js';
+import type { HooksConsentRequest, OfficeRooms } from '../../../core/src/messages.js';
 import { playDoneSound, playPermissionSound, setSoundEnabled } from '../notificationSound.js';
 import type { ExistingAgentMeta, PendingAgent } from '../office/engine/existingAgents.js';
 import { reconcileExistingAgents } from '../office/engine/existingAgents.js';
@@ -118,6 +118,8 @@ interface ExtensionMessageState {
   hooksInfoShown: boolean;
   /** Live tmux metadata keyed by agent id. A null tmux closes the terminal panel. */
   agentTerminals: Record<number, AgentTerminalMeta>;
+  /** Configured office rooms; null when the server has no room patterns. */
+  officeRooms: OfficeRooms | null;
   /** First-run consent ask (hooksConsentRequest). Non-null while the server waits on an answer; carries the provider
    *  and the server's exact disclosure copy, so the consent step renders the terms being approved with no client
    *  duplicate to drift. Cleared on answer/dismissal, and by a matching provider's hooksStatus installed=true. */
@@ -173,6 +175,7 @@ export function useExtensionMessages(
   const [showAreas, setShowAreas] = useState(false);
   const [agentTerminals, setAgentTerminals] = useState<Record<number, AgentTerminalMeta>>({});
   const terminalsRef = useRef<Record<number, AgentTerminalMeta>>({});
+  const [officeRooms, setOfficeRooms] = useState<OfficeRooms | null>(null);
 
   // The renderer keeps its own module-level copy (read every rAF frame), so both
   // sources of truth move together — the persisted value on settingsLoaded and
@@ -251,6 +254,11 @@ export function useExtensionMessages(
           subagentToolNames: msg.subagentToolNames,
           questionTools: msg.questionTools,
         });
+        return;
+      }
+
+      if (msg.type === 'officeRooms') {
+        setOfficeRooms(msg);
         return;
       }
 
@@ -855,6 +863,7 @@ export function useExtensionMessages(
     setHooksEnabled,
     hooksInfoShown,
     agentTerminals,
+    officeRooms,
     consentRequest,
     // Called when a tour ends (answer + Let's Go, the X, Escape) with the providerId that tour was ABOUT, removing
     // that entry so the next provider's ask becomes the head. Keyed by id, not a blind shift: an answered ask's own

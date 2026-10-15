@@ -368,6 +368,7 @@ function handleWebviewReady(send: WsSend, ctx: ClientMessageContext): void {
     subagentToolNames: [...claudeProvider.subagentToolNames],
     questionTools: [...(claudeProvider.questionTools ?? [])],
   });
+  if (runtime?.officeRooms) send({ ...runtime.officeRooms });
 
   // 2. Assets (from server cache, loaded at startup via pngjs)
   if (cache) {

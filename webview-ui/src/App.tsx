@@ -104,6 +104,7 @@ function App() {
     showAreas,
     setShowAreas,
     agentTerminals,
+    officeRooms,
   } = useExtensionMessages(getOfficeState, editor.setLastSavedLayout, isEditDirty);
 
   const [openTerminalId, setOpenTerminalId] = useState<number | null>(null);
@@ -374,6 +375,7 @@ function App() {
               officeState={officeState}
               agentTerminals={agentTerminals}
               agentTools={agentTools}
+              officeRooms={officeRooms}
               onClick={handleClick}
             />
           </Suspense>

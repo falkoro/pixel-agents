@@ -70,7 +70,7 @@ import {
   mesh,
   ringGeometry,
 } from './assets.js';
-import type { OfficePlan, RoomSpot } from './layout.js';
+import type { DeskSpot, OfficePlan, RoomSpot } from './layout.js';
 import { planOffice } from './layout.js';
 import type { DeskModel, DeskStatus, HelperModel, RoomModel } from './model.js';
 import { roomHeat, STATUS_TEXT } from './model.js';
@@ -322,6 +322,13 @@ class DeskView {
     this.label = new CSS2DObject(this.labelEl);
     this.label.position.set(0, FLOOR_Y, 1.05);
     this.group.add(this.label);
+  }
+
+  place(spot: DeskSpot): void {
+    // Scaling about the group origin would sink the desk below the floor slab.
+    this.group.position.set(spot.x, FLOOR_Y * (1 - spot.scale), spot.z);
+    this.group.scale.setScalar(spot.scale);
+    this.labelEl.dataset.background = String(spot.scale < 1);
   }
 
   apply(model: DeskModel, look: Look, selected: boolean): void {
@@ -865,7 +872,7 @@ export class OfficeScene {
     this.plan = planOffice(this.snapshot.rooms, this.camera.aspect);
     for (const spot of this.plan.rooms) {
       this.rooms.get(spot.id)?.place(spot);
-      for (const d of spot.desks) this.desks.get(d.agentId)?.group.position.set(d.x, 0, d.z);
+      for (const d of spot.desks) this.desks.get(d.agentId)?.place(d);
     }
     const planKey = JSON.stringify([
       this.plan.columns,

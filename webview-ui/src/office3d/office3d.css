@@ -164,6 +164,15 @@
   display: none;
 }
 
+/* Background desks are smaller: name only. */
+.o3d-desk[data-background='true'] {
+  padding: 1px 5px 2px;
+  font-size: 12px;
+}
+.o3d-desk[data-background='true'] .o3d-desk-status {
+  display: none;
+}
+
 /* ── Room roster (desks too small for their own labels) ───── */
 .o3d-roster {
   display: none;

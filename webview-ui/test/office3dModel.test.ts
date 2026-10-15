@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 
 import { describe, test } from 'vitest';
 
+import { matchesRoomPattern, parseRoomPatterns } from '../../core/src/roomPatterns.js';
 import type { Character } from '../src/office/types.js';
 import type { TerminalMeta } from '../src/office3d/model.js';
-import { deriveOffice, deskStatus, LOUNGE_ROOM_ID, roomHeat } from '../src/office3d/model.js';
+import { BACKGROUND_ROOM_ID, deriveOffice, deskStatus, roomHeat } from '../src/office3d/model.js';
 
 function char(id: number, extra: Partial<Character> = {}): Character {
   return {
@@ -88,7 +89,7 @@ describe('deriveOffice', () => {
     );
   });
 
-  test('puts agents without tmux in one last room', () => {
+  test('puts agents without tmux in the background, last', () => {
     const chars = [
       char(5),
       char(1, { tmux: pane('zeta') }),
@@ -98,10 +99,10 @@ describe('deriveOffice', () => {
     const rooms = deriveOffice(chars, {});
     assert.deepEqual(
       rooms.map((r) => r.id),
-      ['alpha', 'zeta', LOUNGE_ROOM_ID],
+      ['alpha', 'zeta', BACKGROUND_ROOM_ID],
     );
     const last = rooms[rooms.length - 1];
-    assert.equal(last.title, 'Lounge');
+    assert.equal(last.title, 'Background');
     assert.deepEqual(
       last.desks.map((d) => d.agentId),
       [3, 5],
@@ -109,7 +110,7 @@ describe('deriveOffice', () => {
     assert.equal(last.desks[0].pane, null);
   });
 
-  test('no lounge when every agent has a pane', () => {
+  test('no background when every agent has a pane', () => {
     const rooms = deriveOffice([char(1, { tmux: pane('a') })], {});
     assert.equal(rooms.length, 1);
   });
@@ -123,10 +124,40 @@ describe('deriveOffice', () => {
     assert.deepEqual(room.desks[0].pane, pane('emperor-8'));
   });
 
-  test('a terminal entry with no pane sends the agent to the lounge', () => {
+  test('a terminal entry with no pane sends the agent to the background', () => {
     const chars = [char(1, { tmux: pane('gone') })];
     const rooms = deriveOffice(chars, { 1: { name: null, tmux: null } });
-    assert.equal(rooms[0].id, LOUNGE_ROOM_ID);
+    assert.equal(rooms[0].id, BACKGROUND_ROOM_ID);
+  });
+
+  test('configured rooms stay when empty and everyone else works in the background', () => {
+    const chars = [
+      char(1, { tmux: pane('emperor-2') }),
+      char(2, { tmux: pane('scratch', '@4') }),
+      char(3),
+      char(4, { tmux: pane('build') }),
+      char(5, { tmux: pane('scratch', '@1') }),
+    ];
+    const config = { patterns: ['emperor-*'], sessions: ['emperor-10', 'emperor-2', 'emperor-8'] };
+    const rooms = deriveOffice(chars, {}, {}, config);
+    assert.deepEqual(
+      rooms.map((r) => [r.id, r.desks.map((d) => d.agentId)]),
+      [
+        ['emperor-2', [1]],
+        ['emperor-8', []],
+        ['emperor-10', []],
+        [BACKGROUND_ROOM_ID, [4, 5, 2, 3]],
+      ],
+    );
+  });
+
+  test('an agent in a matching session gets its room before tmux lists it', () => {
+    const config = { patterns: ['emperor-*'], sessions: [] };
+    const rooms = deriveOffice([char(1, { tmux: pane('emperor-9') })], {}, {}, config);
+    assert.deepEqual(
+      rooms.map((r) => r.id),
+      ['emperor-9'],
+    );
   });
 
   test('names fall back from registry name to folder to agent id', () => {
@@ -231,5 +262,21 @@ describe('roomHeat', () => {
       'needs-permission',
       null,
     ]);
+  });
+});
+
+describe('room patterns', () => {
+  test('split on commas and whitespace', () => {
+    assert.deepEqual(parseRoomPatterns(' emperor-*, ops\tlab '), ['emperor-*', 'ops', 'lab']);
+    assert.deepEqual(parseRoomPatterns(undefined), []);
+  });
+
+  test('star matches any run and nothing else is special', () => {
+    assert.ok(matchesRoomPattern(['emperor-*'], 'emperor-8'));
+    assert.ok(matchesRoomPattern(['emperor-*'], 'emperor-'));
+    assert.ok(!matchesRoomPattern(['emperor-*'], 'my-emperor-8'));
+    assert.ok(matchesRoomPattern(['a.b'], 'a.b'));
+    assert.ok(!matchesRoomPattern(['a.b'], 'axb'));
+    assert.ok(!matchesRoomPattern([], 'emperor-8'));
   });
 });

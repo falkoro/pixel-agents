@@ -3,6 +3,7 @@ import './office3d.css';
 import type { CSSProperties } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
+import type { OfficeRooms } from '../../../core/src/messages.js';
 import { OFFICE3D_PINNED_ROOMS, OFFICE3D_POLL_MS, OFFICE3D_STATUS_COLORS } from '../constants.js';
 import type { AgentTerminalMeta } from '../hooks/useExtensionMessages.js';
 import type { OfficeState } from '../office/engine/officeState.js';
@@ -17,6 +18,7 @@ interface Office3DProps {
   officeState: OfficeState;
   agentTerminals: Record<number, AgentTerminalMeta>;
   agentTools: Record<number, ToolActivity[]>;
+  officeRooms: OfficeRooms | null;
   onClick: (agentId: number) => void;
 }
 
@@ -65,8 +67,8 @@ export default function Office3D(props: Office3DProps) {
     let last = '';
     function poll(): void {
       if (document.hidden) return;
-      const { officeState: os, agentTerminals, agentTools } = latest.current;
-      const next = deriveOffice(os.characters.values(), agentTerminals, agentTools);
+      const { officeState: os, agentTerminals, agentTools, officeRooms } = latest.current;
+      const next = deriveOffice(os.characters.values(), agentTerminals, agentTools, officeRooms);
       const looks = new Map<number, Look>();
       for (const ch of os.characters.values()) {
         looks.set(ch.id, { palette: ch.palette, hueShift: ch.hueShift });

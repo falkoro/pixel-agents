@@ -117,6 +117,7 @@ components:
         - $ref: '#/components/schemas/ExternalAssetDirectoriesUpdated'
         - $ref: '#/components/schemas/AreaMappingsLoaded'
         - $ref: '#/components/schemas/WorkspaceFolders'
+        - $ref: '#/components/schemas/OfficeRooms'
         # Diagnostics
         - $ref: '#/components/schemas/AgentDiagnostics'
       discriminator: type
@@ -175,6 +176,28 @@ components:
           items:
             type: string
           description: Tool names that ask the user a question. While one is open the agent waits for an answer.
+
+    OfficeRooms:
+      description: |
+        Which tmux sessions are rooms in the 3D office. Sent after `webviewReady`
+        and again whenever the matching sessions change, only when the server has
+        room patterns configured. Agents outside these rooms work in the background.
+      type: object
+      additionalProperties: false
+      required: [type, patterns, sessions]
+      properties:
+        type:
+          const: officeRooms
+        patterns:
+          type: array
+          items:
+            type: string
+          description: Session name globs, for example emperor-*. `*` matches any run of characters.
+        sessions:
+          type: array
+          items:
+            type: string
+          description: Live tmux sessions that match a pattern. Each one keeps its room, even with nobody in it.
 
     AgentCreated:
       description: A new agent has appeared in the office.

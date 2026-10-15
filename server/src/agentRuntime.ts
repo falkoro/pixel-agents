@@ -12,6 +12,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+import type { OfficeRooms } from '../../core/src/messages.js';
 import type { HookProvider } from '../../core/src/provider.js';
 import type { AgentStateStore } from './agentStateStore.js';
 import { CLAUDE_SESSION_POLL_INTERVAL_MS, DEFAULT_MAX_CONTEXT_TOKENS } from './constants.js';
@@ -91,6 +92,8 @@ export class AgentRuntime {
    * turn Watch All Sessions back off. Not written to disk.
    */
   forceWatchAll = false;
+  /** Latest room list when PIXEL_AGENTS_OFFICE_ROOMS is set, replayed on webviewReady. */
+  officeRooms: OfficeRooms | null = null;
   readonly hooksEnabled = { current: true };
 
   // Dependencies

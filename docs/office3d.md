@@ -3,8 +3,13 @@
 ## Design choices
 
 - **Model first, pure.** `deriveOffice` turns the live `OfficeState` characters into rooms (one per tmux
-  session, natural order, Lounge last) of desks with helpers. Status comes from one first-match table.
-  `layoutOffice` is a pure function of room shapes and viewport aspect. Both are covered by vitest.
+  session, natural order, Background last) of desks with helpers. Status comes from one first-match table.
+  `planOffice` is a pure function of room shapes and viewport aspect. Both are covered by vitest.
+- **Rooms are configurable.** `PIXEL_AGENTS_OFFICE_ROOMS=emperor-*` on the server (globs, comma or space
+  separated) makes only matching tmux sessions rooms. The server lists sessions read-only every 2 s and
+  sends `officeRooms`, so a matching session keeps its room even with nobody in it. Every other agent, and
+  any agent without tmux, works at a smaller desk in the Background strip behind the rooms; clicking it
+  still opens its terminal. Without the setting every session is a room.
 - **Feeding the scene.** `OfficeState` is mutated in place and never re-renders React, so `Office3D` polls
   it every 250 ms and pushes a snapshot only when a JSON signature changes. The scene never reads React state.
 - **Status reads from the overview without hovering.** Each status has a colour and a shape. Working
