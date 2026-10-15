@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 
 import { describe, test } from 'vitest';
 
-import { matchesRoomPattern, parseRoomConfig } from '../../core/src/roomPatterns.js';
+import {
+  matchesRoomPattern,
+  parseBackground,
+  parseRoomConfig,
+} from '../../core/src/roomPatterns.js';
 import type { Character } from '../src/office/types.js';
 import type { TerminalMeta } from '../src/office3d/model.js';
 import type { OfficeConfig } from '../src/office3d/model.js';
@@ -32,8 +36,8 @@ function char(id: number, extra: Partial<Character> = {}): Character {
   } as Character;
 }
 
-function cfg(rooms: OfficeConfig['rooms'], pinned: string[] = []): OfficeConfig {
-  return { rooms, pinned };
+function cfg(rooms: OfficeConfig['rooms'], pinned: string[] = [], background = true): OfficeConfig {
+  return { rooms, pinned, background };
 }
 
 function pane(session: string, windowId = '@1', paneId = '%1'): TerminalMeta['tmux'] {
@@ -120,6 +124,28 @@ describe('deriveOffice', () => {
       [3, 5],
     );
     assert.equal(roomDesks(last)[0].pane, null);
+  });
+
+  test('a hidden background drops agents in no room', () => {
+    const chars = [
+      char(1, { tmux: pane('emperor-1') }),
+      char(2, { tmux: pane('ops') }),
+      char(3, { folderName: 'nightly' }),
+    ];
+    const rooms = deriveOffice(
+      chars,
+      {},
+      {},
+      cfg([{ name: 'emperor', patterns: ['emperor-*'] }], [], false),
+    );
+    assert.deepEqual(
+      rooms.map((r) => r.id),
+      ['emperor'],
+    );
+    assert.deepEqual(
+      roomDesks(rooms[0]).map((d) => d.agentId),
+      [1],
+    );
   });
 
   test('no background when every agent has a pane', () => {
@@ -415,6 +441,13 @@ describe('room patterns', () => {
       { name: 'bare', patterns: ['bare'] },
     ]);
     assert.deepEqual(parseRoomConfig(undefined), []);
+  });
+
+  test('parseBackground hides only on an explicit no', () => {
+    for (const raw of ['hide', 'OFF', ' no ', 'false', '0'])
+      assert.equal(parseBackground(raw), false, raw);
+    for (const raw of [undefined, '', 'show', 'yes', '1', 'hidden'])
+      assert.equal(parseBackground(raw), true, String(raw));
   });
 
   test('star matches any run and nothing else is special', () => {

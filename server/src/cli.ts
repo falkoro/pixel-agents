@@ -10,7 +10,7 @@
 
 import * as path from 'path';
 
-import { parseGlobs, parseRoomConfig } from '../../core/src/roomPatterns.js';
+import { parseBackground, parseGlobs, parseRoomConfig } from '../../core/src/roomPatterns.js';
 import { type AccessVerifier, createAccessVerifier, type JwksDocument } from './accessJwt.js';
 import { AgentRuntime } from './agentRuntime.js';
 import { AgentStateStore } from './agentStateStore.js';
@@ -274,13 +274,14 @@ async function main(): Promise<void> {
     }
     const rooms = parseRoomConfig(process.env.PIXEL_AGENTS_OFFICE_ROOMS);
     const pinned = parseGlobs(process.env.PIXEL_AGENTS_OFFICE_PINNED);
-    if (rooms.length > 0 || pinned.length > 0) {
-      runtime.officeRooms = { type: 'officeRooms', rooms, pinned };
+    const background = parseBackground(process.env.PIXEL_AGENTS_OFFICE_BACKGROUND);
+    if (rooms.length > 0 || pinned.length > 0 || !background) {
+      runtime.officeRooms = { type: 'officeRooms', rooms, pinned, background };
       console.log(
         `[Pixel Agents] Office rooms: ${
           rooms.map((room) => `${room.name} (${room.patterns.join(', ')})`).join('; ') ||
           'one per session'
-        }; pinned: ${pinned.join(', ') || 'none'}`,
+        }; pinned: ${pinned.join(', ') || 'none'}; background: ${background ? 'shown' : 'hidden'}`,
       );
     }
 

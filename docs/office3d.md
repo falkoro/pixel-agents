@@ -12,6 +12,7 @@
   with nobody in it. Every other agent, and any agent without tmux, works at a smaller desk in the
   Background strip behind the rooms; clicking it still opens its terminal. On a wide screen its name list
   wraps across the strip. Without the setting every session is a room.
+  `PIXEL_AGENTS_OFFICE_BACKGROUND=hide` drops the Background, so only agents in a room are shown.
 - **Running sessions only.** `--live-only` keeps a top-level agent only while that Claude process is in
   the session registry, and removes it when the process exits. Each registry tick reads `tmux list-panes`
   once and follows a pane by id, so a window moved into another session is shown in that session.

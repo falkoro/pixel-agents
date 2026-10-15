@@ -28,6 +28,11 @@ export function parseGlobs(raw: string | undefined): string[] {
   return (raw ?? '').split(/[\s,]+/).filter(Boolean);
 }
 
+/** PIXEL_AGENTS_OFFICE_BACKGROUND: `hide`, `off`, `no`, `false` or `0` hide the background. */
+export function parseBackground(raw: string | undefined): boolean {
+  return !/^(hide|off|no|false|0)$/i.test((raw ?? '').trim());
+}
+
 export function matchesRoomPattern(patterns: readonly string[], session: string): boolean {
   return patterns.some((pattern) => {
     const body = pattern

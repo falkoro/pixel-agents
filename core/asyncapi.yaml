@@ -180,12 +180,12 @@ components:
     OfficeRooms:
       description: |
         Named rooms and pinned sessions for the 3D office. The server sends this
-        after `webviewReady` when either is configured. Agents whose tmux session
-        matches no room work in the background. With no rooms, every session is
-        a room.
+        after `webviewReady` when any of them is configured. Agents whose tmux
+        session matches no room work in the background, or are hidden when
+        `background` is false. With no rooms, every session is a room.
       type: object
       additionalProperties: false
-      required: [type, rooms, pinned]
+      required: [type, rooms, pinned, background]
       properties:
         type:
           const: officeRooms
@@ -198,6 +198,9 @@ components:
           type: array
           items:
             type: string
+        background:
+          description: False hides agents that are in no room instead of showing them in the background.
+          type: boolean
 
     AgentCreated:
       description: A new agent has appeared in the office.

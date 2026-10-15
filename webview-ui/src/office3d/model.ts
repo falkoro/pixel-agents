@@ -47,7 +47,7 @@ export const BACKGROUND_ROOM_TITLE = 'Background';
 export const NO_PANE_POD_ID = ':no-pane';
 export const NO_PANE_POD_TITLE = 'No tmux';
 
-export type OfficeConfig = Pick<OfficeRooms, 'rooms' | 'pinned'>;
+export type OfficeConfig = Pick<OfficeRooms, 'rooms' | 'pinned' | 'background'>;
 
 export const roomDesks = (room: RoomModel): DeskModel[] => room.pods.flatMap((pod) => pod.desks);
 
@@ -105,9 +105,10 @@ function activityText(
  * configured rooms, one room per tmux session in natural order. With them,
  * every configured room appears in config order, even with no desks, and a
  * desk joins the first room whose glob matches its session. A desk with no pane
- * or no matching room goes to the background, last. Inside a room, pinned pods
- * come first, then sessions in natural order, then the no-pane pod; desks in a
- * pod sort by window, pane, and agent id. Sub-agents ride along as helpers of
+ * or no matching room goes to the background, last, unless the config hides
+ * the background. Inside a room, pinned pods come first, then sessions in
+ * natural order, then the no-pane pod; desks in a pod sort by window, pane,
+ * and agent id. Sub-agents ride along as helpers of
  * their parent's desk. `agentTools` supplies the human activity label
  * ("Reading App.tsx"); without it the bare tool name is used.
  */
@@ -205,7 +206,7 @@ export function deriveOffice(
     title: id,
     pods: toPods(byRoom.get(id) ?? []),
   }));
-  if (background.length > 0) {
+  if (background.length > 0 && config?.background !== false) {
     rooms.push({ id: BACKGROUND_ROOM_ID, title: BACKGROUND_ROOM_TITLE, pods: toPods(background) });
   }
   return rooms;
