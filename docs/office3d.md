@@ -37,6 +37,7 @@ The 3D office answers two questions at a glance: what is each session doing, and
 
 - Labels are DOM through `CSS2DRenderer`. They stay crisp at any pixel ratio and are real buttons.
 - Density follows the desk pitch on screen. Full shows name, activity and picker. Compact shows the name. Roster replaces desk labels with a per-room name list.
+- A label is as wide as its own desk's pitch on screen, measured from that desk's depth, so the back row's narrower labels never overlap their neighbours. Names are never cut. A long name wraps at its hyphens.
 - On a phone the roster has two columns in floor that `planOffice` reserves in front of the pods.
 - The room bar lists the rooms. When one room is focused, or there is only one, it also lists that room's pods.
 - `#emperor` focuses the room. `#emperor-8` focuses the pod. The hash follows back and forward.
@@ -64,7 +65,7 @@ The 3D office answers two questions at a glance: what is each session doing, and
 
 ## Known weaknesses
 
-- In the overview a long name wraps to up to four lines.
+- In the overview a long name wraps to up to four lines, and a word wider than its desk, such as `plantmaxxing`, breaks inside the word.
 - On a phone the roster's two-line names can cover the pinned pod's sign. The pinned desk itself stays in view.
 - On a phone the porch name list covers the porch desks.
 - A "?" badge on a back-row desk can overlap the label of the desk in front.

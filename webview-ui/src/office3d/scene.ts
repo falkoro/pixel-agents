@@ -256,6 +256,7 @@ class DeskView {
   private readonly pickEl: HTMLSelectElement;
   private readonly badge: CSS2DObject;
   private readonly badgeEl: HTMLDivElement;
+  private ppm = '';
 
   constructor(ctx: Ctx, model: DeskModel) {
     this.ctx = ctx;
@@ -324,6 +325,16 @@ class DeskView {
       V2.set(1.5 * s, 1.5 * s, 1.4 * s),
     );
     this.placeHelpers();
+  }
+
+  /** Size the label to this desk's own pixels per metre, so a far row's labels narrow with its pitch. */
+  scaleLabel(ppmAtUnitDepth: number, camera: PerspectiveCamera): void {
+    camera.getWorldDirection(V2);
+    const depth = V.setFromMatrixPosition(this.group.matrixWorld).sub(camera.position).dot(V2);
+    const ppm = ((ppmAtUnitDepth / depth) * this.group.scale.x).toFixed(0);
+    if (ppm === this.ppm) return;
+    this.ppm = ppm;
+    this.el.style.setProperty('--o3d-ppm', ppm);
   }
 
   /** Where confetti starts: just above the seat, in world space. */
@@ -895,6 +906,8 @@ export class OfficeScene {
     if (this.labelsDirty || !this.lastCamera.equals(this.camera.matrixWorld)) {
       this.labelsDirty = false;
       this.lastCamera.copy(this.camera.matrixWorld);
+      const ppmAtUnitDepth = this.height / (2 * Math.tan(MathUtils.degToRad(this.camera.fov / 2)));
+      for (const desk of this.deskList) desk.scaleLabel(ppmAtUnitDepth, this.camera);
       this.labels.render(this.scene, this.camera);
     }
     this.countFrame(now);

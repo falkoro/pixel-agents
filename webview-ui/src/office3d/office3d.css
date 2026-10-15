@@ -180,7 +180,9 @@
 }
 
 .o3d-labels[data-density='compact'] .o3d-desk {
-  padding: 2px 5px 3px;
+  padding: 2px 4px 3px;
+  font-size: 11px;
+  line-height: 1.1;
 }
 .o3d-labels[data-density='compact'] .o3d-desk-status {
   display: none;
