@@ -31,8 +31,8 @@ export interface RoomModel {
 }
 
 /** tmux turns ':' in a session name into '_', so this id never collides with a session. */
-export const UNATTACHED_ROOM_ID = ':unattached';
-export const UNATTACHED_ROOM_TITLE = 'Unattached';
+export const LOUNGE_ROOM_ID = ':lounge';
+export const LOUNGE_ROOM_TITLE = 'Lounge';
 
 export const STATUS_TEXT: Record<DeskStatus, string> = {
   working: 'Working',
@@ -122,10 +122,10 @@ export function deriveOffice(
   }
 
   const bySession = new Map<string, DeskModel[]>();
-  const unattached: DeskModel[] = [];
+  const lounge: DeskModel[] = [];
   for (const desk of desks.values()) {
     if (!desk.pane) {
-      unattached.push(desk);
+      lounge.push(desk);
       continue;
     }
     const list = bySession.get(desk.pane.session) ?? [];
@@ -143,11 +143,11 @@ export function deriveOffice(
     title: session,
     desks: (bySession.get(session) ?? []).sort(paneOrder),
   }));
-  if (unattached.length > 0) {
+  if (lounge.length > 0) {
     rooms.push({
-      id: UNATTACHED_ROOM_ID,
-      title: UNATTACHED_ROOM_TITLE,
-      desks: unattached.sort((a, b) => a.agentId - b.agentId),
+      id: LOUNGE_ROOM_ID,
+      title: LOUNGE_ROOM_TITLE,
+      desks: lounge.sort((a, b) => a.agentId - b.agentId),
     });
   }
   return rooms;

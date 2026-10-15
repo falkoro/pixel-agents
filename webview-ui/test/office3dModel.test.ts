@@ -4,7 +4,7 @@ import { describe, test } from 'vitest';
 
 import type { Character } from '../src/office/types.js';
 import type { TerminalMeta } from '../src/office3d/model.js';
-import { deriveOffice, deskStatus, roomHeat, UNATTACHED_ROOM_ID } from '../src/office3d/model.js';
+import { deriveOffice, deskStatus, LOUNGE_ROOM_ID,roomHeat } from '../src/office3d/model.js';
 
 function char(id: number, extra: Partial<Character> = {}): Character {
   return {
@@ -98,10 +98,10 @@ describe('deriveOffice', () => {
     const rooms = deriveOffice(chars, {});
     assert.deepEqual(
       rooms.map((r) => r.id),
-      ['alpha', 'zeta', UNATTACHED_ROOM_ID],
+      ['alpha', 'zeta', LOUNGE_ROOM_ID],
     );
     const last = rooms[rooms.length - 1];
-    assert.equal(last.title, 'Unattached');
+    assert.equal(last.title, 'Lounge');
     assert.deepEqual(
       last.desks.map((d) => d.agentId),
       [3, 5],
@@ -109,7 +109,7 @@ describe('deriveOffice', () => {
     assert.equal(last.desks[0].pane, null);
   });
 
-  test('no unattached room when every agent has a pane', () => {
+  test('no lounge when every agent has a pane', () => {
     const rooms = deriveOffice([char(1, { tmux: pane('a') })], {});
     assert.equal(rooms.length, 1);
   });
@@ -123,10 +123,10 @@ describe('deriveOffice', () => {
     assert.deepEqual(room.desks[0].pane, pane('emperor-8'));
   });
 
-  test('a terminal entry with no pane sends the agent to the unattached room', () => {
+  test('a terminal entry with no pane sends the agent to the lounge', () => {
     const chars = [char(1, { tmux: pane('gone') })];
     const rooms = deriveOffice(chars, { 1: { name: null, tmux: null } });
-    assert.equal(rooms[0].id, UNATTACHED_ROOM_ID);
+    assert.equal(rooms[0].id, LOUNGE_ROOM_ID);
   });
 
   test('names fall back from registry name to folder to agent id', () => {
