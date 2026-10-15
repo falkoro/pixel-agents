@@ -362,6 +362,8 @@ export const OFFICE3D_SCREEN_HEIGHT_PX = 300;
 export const OFFICE3D_INSET_TOP_PX = 60;
 export const OFFICE3D_INSET_BOTTOM_PX = 72;
 export const OFFICE3D_INSET_SIDE_PX = 14;
+/** localStorage key prefix for a viewer's character choice, per desk name. */
+export const OFFICE3D_CHARACTER_KEY = 'pixel-agents.office3d.character:';
 
 export const OFFICE3D_STATUS_COLORS = {
   working: 0x4da3ff,
